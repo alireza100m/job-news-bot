@@ -26,7 +26,8 @@ CHANNEL = os.environ.get("TELEGRAM_CHANNEL", "@azmoonyar_estekhdam")
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 MODEL = os.environ.get("AI_MODEL", "openai/gpt-4o-mini")
 MAX_POSTS_PER_RUN = int(os.environ.get("MAX_POSTS_PER_RUN", "5"))
-FIRST_RUN_POSTS = 3  # در اولین اجرا فقط چند خبر آخر منتشر شود
+FIRST_RUN_POSTS = 3
+MAX_AGE_DAYS = 3  # خبرهای قدیمی‌تر از ۳ روز منتشر نشوند  # در اولین اجرا فقط چند خبر آخر منتشر شود
 DRY_RUN = os.environ.get("DRY_RUN") == "1"
 AI_DISABLED = os.environ.get("AI_DISABLED") == "1"
 
@@ -217,6 +218,8 @@ def main():
         t = norm_title(i["title"])
         if i["id"] in seen["ids"]:
             continue
+        if i["ts"] and time.time() - i["ts"] > MAX_AGE_DAYS * 86400:
+            continue  # خبر قدیمی؛ احتمالاً مهلتش گذشته
         if is_dup(t, seen["titles"][-500:]) or is_dup(t, batch_titles):
             seen["ids"].append(i["id"])
             continue
