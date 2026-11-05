@@ -29,7 +29,7 @@ jobs:
           TELEGRAM_CHANNEL: "@azmoonyar_estekhdam"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           AI_DISABLED: "1"   # سرویس هوش مصنوعی GitHub فعلاً پاسخ نمی‌دهد
-        run: python debug_models.py || true; MAX_POSTS_PER_RUN=0 python bot.py
+        run: DRY_RUN=1 python bot.py; git checkout seen.json
       - name: Save seen list
         run: |
           git config user.name "news-bot"

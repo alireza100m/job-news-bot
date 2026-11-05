@@ -15,6 +15,7 @@ from pathlib import Path
 
 import feedparser
 from formatter import format_post
+from details import fetch_details, details_lines
 import requests
 
 BASE = Path(__file__).parent
@@ -253,7 +254,23 @@ def main():
         if not res.get("relevant"):
             print(f"[-] skip: {item['title']}")
             continue
-        text = (safe_html(res["post"]).strip()
+        # صفحه‌ی کامل خبر: مهلت، تاریخ آزمون، وضعیت و لینک رسمی ثبت‌نام
+        det = fetch_details(item["link"]) if "iranestekhdam" in item["link"] else {}
+        if det.get("status", "").startswith("پایان"):
+            print(f"[-] registration closed: {item['title']}")
+            continue
+        body = res["post"].strip()
+        extra = details_lines(det)
+        if extra:
+            if "\n📝" in body:
+                head, tail = body.split("\n📝", 1)
+                body = head.rstrip() + "\n" + "\n".join(extra) + "\n\n📝" + tail
+            else:
+                body += "\n\n" + "\n".join(extra)
+        text = safe_html(body)
+        if det.get("reg_url"):
+            text += f'\n\n🔗 <a href="{html.escape(det["reg_url"])}">ورود به سایت رسمی ثبت‌نام</a>'
+        text = (text
                 + f"\n\n📚 برای آمادگی آزمون‌های استخدامی: <b>آزمون یار</b>"
                 + f"\n🆔 {CHANNEL}")
         try:
