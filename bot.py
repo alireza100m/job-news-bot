@@ -264,15 +264,16 @@ def main():
         if det.get("status", "").startswith("پایان"):
             print(f"[-] registration closed: {item['title']}")
             continue
-        body = res["post"].strip()
-        extra = details_lines(det)
-        if extra:
-            if "\n📝" in body:
-                head, tail = body.split("\n📝", 1)
-                sep = "\n\n" if "\n" not in head.strip() else "\n"
-                body = head.rstrip() + sep + "\n".join(extra) + "\n\n📝" + tail
-            else:
-                body += "\n\n" + "\n".join(extra)
+        # ترتیب: عنوان ← متن خبر ← مشخصات (عنوان شغلی، وضعیت، مهلت، تاریخ آزمون، نحوه‌ی ثبت‌نام)
+        lines = res["post"].strip().split("\n")
+        title_line = lines[0]
+        intro = [l for l in lines[1:] if l.startswith("📝")]
+        info = [l for l in lines[1:] if l.strip() and not l.startswith("📝")] + details_lines(det)
+        body = title_line
+        if intro:
+            body += "\n\n" + "\n".join(intro)
+        if info:
+            body += "\n\n" + "\n".join(info)
         text = safe_html(body)
         if det.get("reg_url"):
             text += f'\n\n🔗 <a href="{html.escape(det["reg_url"])}">ورود به سایت رسمی ثبت‌نام</a>'
