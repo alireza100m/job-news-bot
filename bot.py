@@ -15,7 +15,7 @@ from pathlib import Path
 
 import feedparser
 from formatter import format_post, normalize_fa, sentence, strip_heading, _short
-from details import fetch_details, details_lines
+from details import fetch_details, details_lines, is_expired
 import requests
 
 BASE = Path(__file__).parent
@@ -261,7 +261,7 @@ def main():
             continue
         # صفحه‌ی کامل خبر: مهلت، تاریخ آزمون، وضعیت و لینک رسمی ثبت‌نام
         det = fetch_details(item["link"]) if "iranestekhdam" in item["link"] else {}
-        if det.get("status", "").startswith("پایان"):
+        if det.get("status", "").startswith("پایان") or is_expired(det.get("deadline")):
             print(f"[-] registration closed: {item['title']}")
             continue
         # ترتیب: عنوان ← متن خبر ← مشخصات (عنوان شغلی، وضعیت، مهلت، تاریخ آزمون، نحوه‌ی ثبت‌نام)
