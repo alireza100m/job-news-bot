@@ -324,7 +324,7 @@ def main():
         if det.get("lead"):
             intro_text = clean(det["lead"])
         else:
-            intro_text = strip_heading(clean(item["summary"]).replace("...", ""), item["title"])
+            intro_text = strip_heading(clean(item["summary"] or det.get("desc", "")).replace("...", ""), item["title"])
         intro = [f"📝 {sentence(_short(intro_text))}"] if intro_text else []
         info = [normalize_fa(l) for l in lines[1:] if l.strip() and not l.startswith("📝")] \
             + [normalize_fa(l) for l in details_lines(det)]

@@ -47,10 +47,10 @@ def fetch_calendar(url):
             continue
         pre = {"status": "در حال ثبت‌نام",
                "deadline": f"{start} تا {end}" if start else f"تا {end}"}
-        if vals[1] not in ("-", ""):
-            pre["card"] = vals[1]
-        if vals[2] not in ("-", ""):
-            pre["exam"] = vals[2]
+        for key, v in (("card", vals[1]), ("exam", vals[2])):
+            m = re.fullmatch(r"(\d{4})/(\d{1,2})/(\d{1,2})", v.translate(FA))
+            if m:
+                pre[key] = f"{m.group(1)}/{int(m.group(2)):02d}/{int(m.group(3)):02d}"
         title = name if name.startswith(("استخدام", "آزمون", "فراخوان")) else f"استخدام {name}"
         items.append({
             "id": hashlib.sha1((href + name).encode("utf-8")).hexdigest()[:16],

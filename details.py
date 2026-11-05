@@ -59,6 +59,9 @@ def fetch_details(url):
         for _ in range(5):
             lead = re.sub(rf"^(?:{junk})\s*", "", lead)
         d["lead"] = lead
+    m = re.search(r'<meta[^>]+(?:name|property)="(?:og:)?description"[^>]+content="([^"]+)"', page)
+    if m:
+        d["desc"] = html.unescape(m.group(1)).strip()
     # لینک رسمی ثبت‌نام: لینکی بیرون از سایت خبری که متنش «ثبت نام» است
     for href, label in re.findall(r'<a[^>]+href="(https?://[^"]+)"[^>]*>(.*?)</a>', page, re.S):
         label = _text(label).strip()
