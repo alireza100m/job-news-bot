@@ -45,6 +45,11 @@ def fetch_calendar(url):
         start = _full_date(reg.group(1)) if reg else (_full_date(one.group(1)) if one else None)
         end = _full_date(reg.group(2)) if reg else None
         today = "{}/{:02d}/{:02d}".format(*today_jalali())
+        def _days(d):
+            y, mo, dd = map(int, d.split("/"))
+            return y * 365 + mo * 30 + dd
+        if start and not upcoming_status and _days(start) - _days(today) > 60:
+            start = None  # تاریخ شروع دور مال سال قبل است (ثبت‌نامِ از قبل باز)
         phase = "soon" if upcoming_status or (start and start > today) else "open"
         if phase == "open" and not end:
             continue  # ثبت‌نام باز ولی بدون تاریخ پایان
