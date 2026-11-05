@@ -1,6 +1,20 @@
 [
-  {"name": "ایران استخدام", "url": "https://www.iranestekhdam.ir/feed"},
-  {"name": "ای استخدام", "url": "https://www.e-estekhdam.com/feed"},
-  {"name": "گوگل نیوز - آزمون استخدامی", "url": "https://news.google.com/rss/search?q=%D8%A2%D8%B2%D9%85%D9%88%D9%86+%D8%A7%D8%B3%D8%AA%D8%AE%D8%AF%D8%A7%D9%85%DB%8C+when:2d&hl=fa&gl=IR&ceid=IR:fa"},
-  {"name": "گوگل نیوز - فراخوان استخدام", "url": "https://news.google.com/rss/search?q=%D9%81%D8%B1%D8%A7%D8%AE%D9%88%D8%A7%D9%86+%D8%A7%D8%B3%D8%AA%D8%AE%D8%AF%D8%A7%D9%85+when:2d&hl=fa&gl=IR&ceid=IR:fa"}
+  {
+    "name": "ایران استخدام",
+    "url": "https://www.iranestekhdam.ir/feed"
+  },
+  {
+    "name": "ای استخدام",
+    "url": "https://www.e-estekhdam.com/feed"
+  },
+  {
+    "name": "گوگل نیوز - آزمون استخدامی",
+    "url": "https://news.google.com/rss/search?q=%D8%A2%D8%B2%D9%85%D9%88%D9%86+%D8%A7%D8%B3%D8%AA%D8%AE%D8%AF%D8%A7%D9%85%DB%8C+when:2d&hl=fa&gl=IR&ceid=IR:fa",
+    "strip_suffix": true
+  },
+  {
+    "name": "گوگل نیوز - فراخوان استخدام",
+    "url": "https://news.google.com/rss/search?q=%D9%81%D8%B1%D8%A7%D8%AE%D9%88%D8%A7%D9%86+%D8%A7%D8%B3%D8%AA%D8%AE%D8%AF%D8%A7%D9%85+when:2d&hl=fa&gl=IR&ceid=IR:fa",
+    "strip_suffix": true
+  }
 ]

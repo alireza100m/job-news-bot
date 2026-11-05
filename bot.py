@@ -60,9 +60,22 @@ def load_json(path, default):
         return default
 
 
+# نام و نشانی سایت‌های منبع نباید در کانال دیده شود
+SITE_NAMES = ["ایران استخدام", "ای استخدام", "ای‌استخدام", "iranestekhdam", "e-estekhdam",
+              "استخدام دات آی آر", "سایت استخدام"]
+
+
 def clean(text):
     text = re.sub(r"<[^>]+>", " ", text or "")
-    return re.sub(r"\s+", " ", html.unescape(text)).strip()
+    text = html.unescape(text)
+    text = re.sub(r"The post .*? appeared first on .*?\.", " ", text, flags=re.S)
+    text = re.sub(r"(https?://|www\.)\S+", " ", text)
+    text = re.sub(r"\S+\.(ir|com|org|net)\b\S*", " ", text)
+    text = re.sub(r"\[(…|\.\.\.)\]|ادامه مطلب|ادامه‌ی مطلب|ادامه خبر", " ", text)
+    for name in SITE_NAMES:
+        text = re.sub(re.escape(name), " ", text, flags=re.I)
+    text = re.sub(r"\s+([،.:])", r"\1", text)
+    return re.sub(r"\s+", " ", text).strip(" -–|:،")
 
 
 def item_id(entry):
@@ -87,7 +100,9 @@ def fetch_items(sources):
         for e in feed.entries[:20]:
             items.append({
                 "id": item_id(e),
-                "title": clean(e.get("title")),
+                # گوگل نیوز اسم سایت را با « - » به آخر عنوان می‌چسباند
+                "title": clean(re.sub(r"\s+-\s+[^-]+$", "", e.get("title", ""))
+                               if src.get("strip_suffix") else e.get("title")),
                 "summary": clean(e.get("summary", ""))[:2500],
                 "link": e.get("link", ""),
                 "source": src["name"],
@@ -200,7 +215,6 @@ def main():
             print(f"[-] skip: {item['title']}")
             continue
         text = (safe_html(res["post"]).strip()
-                + f"\n\n🔗 <a href=\"{html.escape(item['link'])}\">مشاهده‌ی متن کامل</a> | {html.escape(item['source'])}"
                 + f"\n\n📚 برای آمادگی آزمون‌های استخدامی: <b>آزمون یار</b>"
                 + f"\n🆔 {CHANNEL}")
         try:
