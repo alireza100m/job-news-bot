@@ -25,6 +25,11 @@ SOURCES_FILE = BASE / "sources.json"
 TELEGRAM_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 CHANNEL = os.environ.get("TELEGRAM_CHANNEL", "@azmoonyar_estekhdam")
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
+# کانال‌های آینه در بله و ایتا (اختیاری؛ اگر خالی باشند ارسال نمی‌شود)
+BALE_TOKEN = os.environ.get("BALE_BOT_TOKEN", "")
+BALE_CHANNEL = os.environ.get("BALE_CHANNEL", "")
+EITAA_TOKEN = os.environ.get("EITAA_TOKEN", "")
+EITAA_CHANNEL = os.environ.get("EITAA_CHANNEL", "")
 MODEL = os.environ.get("AI_MODEL", "openai/gpt-4o-mini")
 MAX_POSTS_PER_RUN = int(os.environ.get("MAX_POSTS_PER_RUN", "5"))
 FIRST_RUN_POSTS = 3
@@ -202,6 +207,31 @@ def send(text):
     )
     if not r.ok:
         raise RuntimeError(f"Telegram error: {r.text}")
+    send_mirrors(text)
+
+
+def plain_text(text):
+    """متن بدون تگ HTML برای بله و ایتا."""
+    return html.unescape(re.sub(r"</?b>", "", text))
+
+
+def send_mirrors(text):
+    """ارسال همان خبر به بله و ایتا؛ خطای آن‌ها انتشار در تلگرام را متوقف نمی‌کند."""
+    plain = plain_text(text)
+    if BALE_TOKEN and BALE_CHANNEL:
+        try:
+            r = requests.post(f"https://tapi.bale.ai/bot{BALE_TOKEN}/sendMessage",
+                              json={"chat_id": BALE_CHANNEL, "text": plain}, timeout=30)
+            print(f"[bale] {r.status_code} {r.text[:200]}" if not r.ok else "[bale] ok")
+        except Exception as e:
+            print(f"[bale] failed: {e}"[:300])
+    if EITAA_TOKEN and EITAA_CHANNEL:
+        try:
+            r = requests.post(f"https://eitaayar.ir/api/{EITAA_TOKEN}/sendMessage",
+                              data={"chat_id": EITAA_CHANNEL, "text": plain}, timeout=30)
+            print(f"[eitaa] {r.status_code} {r.text[:200]}" if not r.ok else "[eitaa] ok")
+        except Exception as e:
+            print(f"[eitaa] failed: {e}"[:300])
 
 
 def main():

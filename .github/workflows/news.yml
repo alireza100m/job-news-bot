@@ -27,6 +27,10 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHANNEL: "@azmoonyar_estekhdam"
+          BALE_BOT_TOKEN: ${{ secrets.BALE_BOT_TOKEN }}
+          BALE_CHANNEL: ${{ secrets.BALE_CHANNEL }}
+          EITAA_TOKEN: ${{ secrets.EITAA_TOKEN }}
+          EITAA_CHANNEL: ${{ secrets.EITAA_CHANNEL }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           AI_DISABLED: "1"   # سرویس هوش مصنوعی GitHub فعلاً پاسخ نمی‌دهد
         run: python bot.py
