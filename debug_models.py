@@ -1,8 +1,8 @@
-import os, requests
-T=os.environ["GITHUB_TOKEN"]
-H={"Authorization":f"Bearer {T}","Content-Type":"application/json","Accept":"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28"}
-r=requests.get("https://models.github.ai/catalog/models",headers=H,timeout=30)
-print("DBG catalog",r.status_code,r.headers.get("content-type"),repr(r.text[:200]))
-for url in ["https://models.github.ai/inference/chat/completions","https://models.github.ai/orgs/alireza100m/inference/chat/completions"]:
-    r=requests.post(url,headers=H,json={"model":"openai/gpt-4o-mini","messages":[{"role":"user","content":"say hi"}]},timeout=60,allow_redirects=False)
-    print("DBG",url,r.status_code,r.headers.get("content-type"),dict((k,v) for k,v in r.headers.items() if k.lower().startswith(("x-","server","via"))),repr(r.text[:300]))
+import requests, feedparser, json, re, html
+for s in json.load(open("sources.json",encoding="utf-8")):
+    r=requests.get(s["url"],headers={"User-Agent":"Mozilla/5.0"},timeout=30); f=feedparser.parse(r.content)
+    for e in f.entries[:4]:
+        su=re.sub(r"\s+"," ",re.sub(r"<[^>]+>"," ",html.unescape(e.get("summary",""))))
+        c=e.get("content",[{}])[0].get("value","") if e.get("content") else ""
+        c=re.sub(r"\s+"," ",re.sub(r"<[^>]+>"," ",html.unescape(c)))
+        print("DBG|", s["name"], "|", e.get("title"), "|S:", su[:500], "|C:", len(c), c[:900])
