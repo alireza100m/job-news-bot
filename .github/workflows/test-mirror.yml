@@ -1,0 +1,23 @@
+name: آزمایش ارسال به بله و ایتا
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Send test message
+        env:
+          TELEGRAM_BOT_TOKEN: "unused"
+          BALE_BOT_TOKEN: ${{ secrets.BALE_BOT_TOKEN }}
+          BALE_CHANNEL: ${{ secrets.BALE_CHANNEL }}
+          EITAA_TOKEN: ${{ secrets.EITAA_TOKEN }}
+          EITAA_CHANNEL: ${{ secrets.EITAA_CHANNEL }}
+        run: |
+          python -c "import bot; bot.send_mirrors('<b>آزمون یار</b>\nاین یک پیام آزمایشی است. از این پس اخبار استخدام دولتی در این کانال منتشر می‌شود.\n\n📢 @azmoonyar_estekhdam')"
