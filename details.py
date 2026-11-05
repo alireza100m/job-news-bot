@@ -76,13 +76,15 @@ def details_lines(d):
     lines = []
     if d.get("status"):
         lines.append(f"📌 وضعیت: {d['status']}")
+    if d.get("start") and d.get("phase") == "soon":
+        lines.append(f"🗓 شروع ثبت‌نام: {d['start']}")
     if d.get("deadline"):
         lines.append(f"📅 مهلت ثبت‌نام: {d['deadline']}")
     if d.get("card"):
         lines.append(f"🪪 دریافت کارت آزمون: {d['card']}")
     if d.get("exam"):
         lines.append(f"✏️ تاریخ آزمون: {d['exam']}")
-    if d.get("reg_url"):
+    if d.get("reg_url") and d.get("phase") != "soon":
         lines.append("🖊 نحوه‌ی ثبت‌نام: فقط اینترنتی، از سامانه‌ی رسمی زیر")
     return lines
 

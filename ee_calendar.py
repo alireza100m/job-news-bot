@@ -37,23 +37,35 @@ def fetch_calendar(url):
             continue
         name, status = _t(tm.group(1)), (_t(sm.group(1)) if sm else "")
         vals = [_t(v) for v in re.findall(r'class="v">(.*?)</div>', body, re.S)] + ["-"] * 4
-        if status != "ثبت نام":
-            continue  # فقط آزمون‌هایی که الان ثبت‌نامشان باز است
+        upcoming_status = "به زودی" in status or "به‌زودی" in status or "در انتظار ثبت" in status
+        if status != "ثبت نام" and not upcoming_status:
+            continue  # فقط ثبت‌نام باز یا به‌زودی
         reg = re.fullmatch(r"(\S+)\s*-\s*(\S+)", vals[0])
-        if not reg:
-            continue  # بدون تاریخ پایان ثبت‌نام
-        start, end = _full_date(reg.group(1)), _full_date(reg.group(2))
-        if not end:
-            continue
-        pre = {"status": "در حال ثبت‌نام",
-               "deadline": f"{start} تا {end}" if start else f"تا {end}"}
+        one = re.fullmatch(r"از\s*(\S+)", vals[0])
+        start = _full_date(reg.group(1)) if reg else (_full_date(one.group(1)) if one else None)
+        end = _full_date(reg.group(2)) if reg else None
+        today = "{}/{:02d}/{:02d}".format(*today_jalali())
+        phase = "soon" if upcoming_status or (start and start > today) else "open"
+        if phase == "open" and not end:
+            continue  # ثبت‌نام باز ولی بدون تاریخ پایان
+        if phase == "soon":
+            pre = {"status": "به‌زودی (هنوز شروع نشده)", "phase": "soon"}
+            if start:
+                pre["start"] = start
+            if end:
+                pre["deadline"] = f"{start} تا {end}" if start else f"تا {end}"
+        else:
+            pre = {"status": "در حال ثبت‌نام",
+                   "deadline": f"{start} تا {end}" if start else f"تا {end}"}
         for key, v in (("card", vals[1]), ("exam", vals[2])):
             m = re.fullmatch(r"(\d{4})/(\d{1,2})/(\d{1,2})", v.translate(FA))
             if m:
                 pre[key] = f"{m.group(1)}/{int(m.group(2)):02d}/{int(m.group(3)):02d}"
         title = name if name.startswith(("استخدام", "آزمون", "فراخوان")) else f"استخدام {name}"
         items.append({
-            "id": hashlib.sha1((href + name).encode("utf-8")).hexdigest()[:16],
+            # «به‌زودی» و «ثبت‌نام باز» دو پست جدا هستند
+            "id": hashlib.sha1((href + name + ("|soon" if phase == "soon" else "")).encode("utf-8")).hexdigest()[:16],
+            "phase": phase,
             "title": title, "summary": "", "link": href, "gov": True, "ts": 0, "pre": pre,
         })
     return items

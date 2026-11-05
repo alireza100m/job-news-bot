@@ -204,6 +204,15 @@ def calendar_intro(title, det):
     return text + "."
 
 
+def soon_intro(title, det):
+    subject = title if title.startswith(("آزمون", "فراخوان")) else "آزمون " + title
+    start = _date_words(det.get("start", ""))
+    text = f"ثبت‌نام {subject} به‌زودی آغاز می‌شود"
+    if start:
+        text = f"ثبت‌نام {subject} از {start} آغاز می‌شود"
+    return text + "؛ برای اطلاع از شروع ثبت‌نام، کانال را دنبال کنید."
+
+
 def plain_post(item):
     """قالب مرتب بدون هوش مصنوعی (formatter.py)."""
     return {"relevant": True, "post": format_post(item["title"], item["summary"])}
@@ -297,7 +306,11 @@ def main():
             continue
         if i["ts"] and time.time() - i["ts"] > MAX_AGE_DAYS * 86400:
             continue  # خبر قدیمی؛ احتمالاً مهلتش گذشته
-        if is_dup(t, seen["titles"][-500:]) or is_dup(t, batch_titles):
+        if i.get("phase") == "soon":
+            t = "soon|" + t  # اطلاعیه‌ی به‌زودی با پست ثبت‌نام بعدی تکراری حساب نشود
+            i["norm"] = t
+        same_phase = [o for o in seen["titles"][-500:] if o.startswith("soon|") == t.startswith("soon|")]
+        if is_dup(t, same_phase) or is_dup(t, batch_titles):
             seen["ids"].append(i["id"])
             continue
         batch_titles.append(t)
@@ -317,7 +330,7 @@ def main():
             break  # بقیه برای اجرای بعدی می‌مانند
         if not is_relevant(item):
             seen["ids"].append(item["id"])
-            seen["titles"].append(norm_title(item["title"]))
+            seen["titles"].append(item.get("norm") or norm_title(item["title"]))
             print(f"[-] not gov/office: {item['title']}")
             continue
         try:
@@ -326,7 +339,7 @@ def main():
             print(f"[!] AI failed, using plain format: {e}"[:300])
             res = plain_post(item)
         seen["ids"].append(item["id"])
-        seen["titles"].append(norm_title(item["title"]))
+        seen["titles"].append(item.get("norm") or norm_title(item["title"]))
         if not res.get("relevant"):
             print(f"[-] skip: {item['title']}")
             continue
@@ -338,7 +351,8 @@ def main():
             continue
         # ترتیب: عنوان ← متن خبر ← مشخصات (عنوان شغلی، وضعیت، مهلت، تاریخ آزمون، نحوه‌ی ثبت‌نام)
         # آگهی استخدام/آزمون بدون مهلت ثبت‌نام به درد مخاطب نمی‌خورد
-        if not det.get("deadline") and not any(w in item["title"] for w in NEWS_WORDS):
+        is_soon = det.get("phase") == "soon" or det.get("status", "").startswith("به زودی")
+        if not is_soon and not det.get("deadline") and not any(w in item["title"] for w in NEWS_WORDS):
             print(f"[-] no deadline: {item['title']}")
             continue
         lines = res["post"].strip().split("\n")
@@ -348,6 +362,8 @@ def main():
             continue
         if det.get("lead"):
             intro_text = clean(det["lead"])
+        elif item.get("pre", {}).get("phase") == "soon":
+            intro_text = soon_intro(item["title"], det)
         elif item.get("pre"):
             intro_text = calendar_intro(item["title"], det)
         else:
@@ -362,7 +378,8 @@ def main():
             body += "\n\n" + "\n".join(info)
         text = safe_html(body)
         if det.get("reg_url"):
-            text += f'\n\n🔗 <a href="{html.escape(det["reg_url"])}">ورود به سایت رسمی ثبت‌نام</a>'
+            label = "سایت رسمی ثبت‌نام (بعد از شروع ثبت‌نام)" if det.get("phase") == "soon" else "ورود به سایت رسمی ثبت‌نام"
+            text += f'\n\n🔗 <a href="{html.escape(det["reg_url"])}">{label}</a>'
         text = (text
                 + f"\n\n📚 برای آمادگی آزمون‌های استخدامی: <b>آزمون یار</b>"
                 + f"\n🆔 {CHANNEL}")
@@ -375,7 +392,7 @@ def main():
             print(f"[!] {e}")
             # ارسال نشد؛ از فهرست دیده‌شده‌ها خارج شود تا دفعه‌ی بعد دوباره امتحان شود
             seen["ids"].remove(item["id"])
-            seen["titles"].remove(norm_title(item["title"]))
+            seen["titles"].remove(item.get("norm") or norm_title(item["title"]))
             if "404" in str(e) or "401" in str(e):
                 break  # توکن اشتباه است؛ بقیه را هم امتحان نکن
 
