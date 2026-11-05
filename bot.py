@@ -14,7 +14,7 @@ from difflib import SequenceMatcher
 from pathlib import Path
 
 import feedparser
-from formatter import format_post
+from formatter import format_post, normalize_fa, sentence, strip_heading, _short
 from details import fetch_details, details_lines
 import requests
 
@@ -265,10 +265,19 @@ def main():
             print(f"[-] registration closed: {item['title']}")
             continue
         # ترتیب: عنوان ← متن خبر ← مشخصات (عنوان شغلی، وضعیت، مهلت، تاریخ آزمون، نحوه‌ی ثبت‌نام)
+        # آگهی استخدام/آزمون بدون مهلت ثبت‌نام به درد مخاطب نمی‌خورد
+        if item["title"].startswith(("استخدام", "آزمون")) and not det.get("deadline"):
+            print(f"[-] no deadline: {item['title']}")
+            continue
         lines = res["post"].strip().split("\n")
-        title_line = lines[0]
-        intro = [l for l in lines[1:] if l.startswith("📝")]
-        info = [l for l in lines[1:] if l.strip() and not l.startswith("📝")] + details_lines(det)
+        title_line = normalize_fa(lines[0])
+        if det.get("lead"):
+            intro_text = clean(det["lead"])
+        else:
+            intro_text = strip_heading(clean(item["summary"]).replace("...", ""), item["title"])
+        intro = [f"📝 {sentence(_short(intro_text))}"] if intro_text else []
+        info = [normalize_fa(l) for l in lines[1:] if l.strip() and not l.startswith("📝")] \
+            + [normalize_fa(l) for l in details_lines(det)]
         body = title_line
         if intro:
             body += "\n\n" + "\n".join(intro)

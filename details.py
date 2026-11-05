@@ -44,6 +44,16 @@ def fetch_details(url):
         m = re.search(r"می[‌ ]?توانند[^.]{0,60}?(تا (?:ساعت \S+ )?(?:روز \S+ )?[\d۰-۹]{1,2} \S+(?: ماه)? [\d۰-۹]{4})", text)
         if m:
             d["deadline"] = m.group(1)
+    # جمله‌ی اصلی خبر، مثل «ثبت نام ... شروع شد؛ علاقمندان ... تا ... اقدام نمایند»
+    start = text.find("آخرین وضعیت")
+    m = re.search(r"([^.!؟:]{10,220}?(?:شروع شد|آغاز شد|تمدید شد|آغاز گردید|تمدید گردید)\s*[؛،][^.!؟]{10,260}?(?:نمایند|کنند|نماید|باشند))",
+                  text[max(start, 0):])
+    if m:
+        lead = m.group(1).strip()
+        junk = "|".join(map(re.escape, STATUSES + ["دفترچه", "(جدید)", "جدید", "-"]))
+        for _ in range(5):
+            lead = re.sub(rf"^(?:{junk})\s*", "", lead)
+        d["lead"] = lead
     # لینک رسمی ثبت‌نام: لینکی بیرون از سایت خبری که متنش «ثبت نام» است
     for href, label in re.findall(r'<a[^>]+href="(https?://[^"]+)"[^>]*>(.*?)</a>', page, re.S):
         label = _text(label).strip()

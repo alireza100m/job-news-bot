@@ -94,3 +94,48 @@ def format_post(title, summary):
             lines.append("")
         lines.append(f"📝 {_short(intro)}")
     return "\n".join(lines).strip()
+
+
+# ---------- ویرایش نگارشی ----------
+FA_DIGITS = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
+ZWNJ = "‌"
+
+
+def normalize_fa(text):
+    """نیم‌فاصله، علائم نگارشی، اعداد فارسی و حذف فاصله‌های اضافه."""
+    if not text:
+        return text
+    t = text.replace("ي", "ی").replace("ك", "ک")
+    t = re.sub(r"(?<=\S) (ها|های|هایی|هایم|هایش|ترین|تری)(?=[\s.،؛:!؟)]|$)", ZWNJ + r"\1", t)
+    t = re.sub(r"(?<![\S])(ن?می) (?=\S)", r"\1" + ZWNJ, t)
+    t = re.sub(r"\s*‌[\s‌]*", ZWNJ, t)  # فاصله یا نیم‌فاصله‌ی تکراری
+    t = re.sub(r"ثبت ?نام", "ثبت‌نام", t)
+    t = t.replace(",", "،").replace(";", "؛").replace("?", "؟")
+    t = re.sub(r"\s+([.،؛:!؟)])", r"\1", t)          # بدون فاصله قبل از علامت
+    t = re.sub(r"([.،؛:!؟])(?=[^\s\d.،؛:!؟)»])", r"\1 ", t)  # یک فاصله بعد از علامت
+    t = re.sub(r"\(\s+", "(", t)
+    t = t.translate(FA_DIGITS)
+    t = re.sub(r"(?<=[۰-۹])\s*/\s*(?=[۰-۹])", "/", t)
+    return re.sub(r"\s{2,}", " ", t).strip()
+
+
+def sentence(text):
+    """یک جمله‌ی کامل با نقطه در پایان."""
+    text = normalize_fa(text).rstrip(" .،؛…")
+    return text + "." if text else text
+
+
+COMMON = {"آزمون", "استخدام", "استخدامی", "آگهی", "ثبت", "نام", "سال", "جدید", "اطلاعیه"}
+
+
+def strip_heading(intro, title):
+    """متن خبر معمولاً با تکرار عنوان شروع می‌شود؛ آن را حذف کن."""
+    tw = set(title.split()) | COMMON
+    words = intro.split()
+    used, i = set(), 0
+    while i < len(words) and (words[i] in tw or re.fullmatch(r"[\d۰-۹]+", words[i])) and words[i] not in used:
+        used.add(words[i])
+        i += 1
+    if i < len(words) and words[i] in used and i > 0:
+        i -= 1  # موضوع جمله دوباره شروع شده (مثل «سازمان صدا و سیما ...»)
+    return " ".join(words[i:]) if i >= 2 else intro
