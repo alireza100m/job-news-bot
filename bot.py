@@ -108,9 +108,18 @@ def fetch_items(sources):
                 "summary": clean(e.get("summary", ""))[:2500],
                 "link": e.get("link", ""),
                 "source": src["name"],
+                "gov": src.get("gov", False),
                 "ts": time.mktime(e.published_parsed) if e.get("published_parsed") else 0,
             })
         print(f"[+] {src['name']}: {len(feed.entries)} items")
+    # یک خبر ممکن است در چند فید باشد؛ یکی شود و اگر در فید دولتی بود، دولتی حساب شود
+    merged = {}
+    for it in items:
+        if it["id"] in merged:
+            merged[it["id"]]["gov"] = merged[it["id"]]["gov"] or it["gov"]
+        else:
+            merged[it["id"]] = it
+    items = list(merged.values())
     items.sort(key=lambda x: x["ts"])  # قدیمی‌تر اول، تا ترتیب انتشار درست باشد
     return items
 
@@ -120,7 +129,7 @@ GOV_KEYWORDS = [
     # آزمون‌ها و استخدام دولتی
     "آزمون استخدامی", "آزمون فراگیر", "آزمون استخدام", "استخدام دولتی", "دستگاه‌های اجرایی",
     "دستگاه های اجرایی", "دستگاههای اجرایی", "پیمانی", "قراردادی", "رسمی آزمایشی", "دولتی",
-    "سنجش", "رتبه بندی", "رتبه‌بندی", "ایثارگر", "بنیاد شهید", "شهدا", "جانبازان",
+    "سازمان سنجش", "رتبه بندی", "رتبه‌بندی", "ایثارگر", "بنیاد شهید", "شهدا", "جانبازان",
     "تسهیلات استخدامی", "استخدامی دولت", "کارکنان دولت",
     # آموزش، سلامت، قضایی
     "آموزش و پرورش", "آموزش‌وپرورش", "فرهنگیان", "معلم", "حق التدریس", "دانشگاه",
@@ -144,7 +153,7 @@ def is_relevant(item):
     t = item["title"]
     if any(k in t for k in PRIVATE_HINTS):
         return False
-    return any(k in t for k in GOV_KEYWORDS)
+    return item.get("gov") or any(k in t for k in GOV_KEYWORDS)
 
 
 def plain_post(item):
