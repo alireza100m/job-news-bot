@@ -16,6 +16,7 @@ from pathlib import Path
 import feedparser
 from formatter import format_post, normalize_fa, sentence, strip_heading, _short
 from details import fetch_details, details_lines, is_expired
+from ee_calendar import fetch_calendar
 import requests
 
 BASE = Path(__file__).parent
@@ -99,6 +100,17 @@ def norm_title(t):
 def fetch_items(sources):
     items = []
     for src in sources:
+        if src.get("type") == "ee_calendar":
+            try:
+                cal = fetch_calendar(src["url"])
+            except Exception as e:
+                print(f"[!] {src['name']}: {e}")
+                continue
+            for it in cal:
+                it["source"] = src["name"]
+            items.extend(cal)
+            print(f"[+] {src['name']}: {len(cal)} open registrations")
+            continue
         try:
             r = requests.get(src["url"], headers=UA, timeout=30)
             r.raise_for_status()
@@ -297,7 +309,8 @@ def main():
             print(f"[-] skip: {item['title']}")
             continue
         # صفحه‌ی کامل خبر: مهلت، تاریخ آزمون، وضعیت و لینک رسمی ثبت‌نام
-        det = fetch_details(item["link"]) if "iranestekhdam" in item["link"] else {}
+        det = fetch_details(item["link"]) if ("iranestekhdam" in item["link"] or "e-estekhdam" in item["link"]) else {}
+        det.update(item.get("pre", {}))  # تاریخ‌های تقویم ای‌استخدام دقیق‌ترند
         if det.get("status", "").startswith("پایان") or is_expired(det.get("deadline")):
             print(f"[-] registration closed: {item['title']}")
             continue
