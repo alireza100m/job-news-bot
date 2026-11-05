@@ -108,7 +108,8 @@ def ai_summarize(item):
               "messages": [{"role": "user", "content": prompt}]},
         timeout=60,
     )
-    r.raise_for_status()
+    if r.status_code != 200 or not r.text.strip():
+        raise RuntimeError(f"AI HTTP {r.status_code}: {r.text[:300]!r}")
     text = r.json()["choices"][0]["message"]["content"]
     m = re.search(r"\{.*\}", text, re.S)
     return json.loads(m.group(0))
