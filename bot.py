@@ -110,9 +110,12 @@ def ai_summarize(item):
     )
     if r.status_code != 200 or not r.text.strip():
         raise RuntimeError(f"AI HTTP {r.status_code}: {r.text[:300]!r}")
-    text = r.json()["choices"][0]["message"]["content"]
-    m = re.search(r"\{.*\}", text, re.S)
-    return json.loads(m.group(0))
+    try:
+        text = r.json()["choices"][0]["message"]["content"]
+        m = re.search(r"\{.*\}", text, re.S)
+        return json.loads(m.group(0))
+    except Exception as e:
+        raise RuntimeError(f"{e} | HTTP {r.status_code} {r.headers.get('content-type')} | {r.text[:400]!r}")
 
 
 def safe_html(post):
