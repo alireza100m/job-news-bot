@@ -266,7 +266,8 @@ def main():
         if extra:
             if "\n📝" in body:
                 head, tail = body.split("\n📝", 1)
-                body = head.rstrip() + "\n" + "\n".join(extra) + "\n\n📝" + tail
+                sep = "\n\n" if "\n" not in head.strip() else "\n"
+                body = head.rstrip() + sep + "\n".join(extra) + "\n\n📝" + tail
             else:
                 body += "\n\n" + "\n".join(extra)
         text = safe_html(body)
