@@ -182,6 +182,28 @@ NEWS_WORDS = ["نتایج", "اطلاعیه", "ابلاغ", "تمدید", "کا�
               "رتبه‌بندی", "اعلام", "پذیرفته", "معرفی شدگان", "مصاحبه", "بخشنامه"]
 
 
+MONTH_NAMES = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
+               "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"]
+
+
+def _date_words(d):
+    m = re.search(r"(\d{4})/(\d{1,2})/(\d{1,2})\s*$", d.translate(str.maketrans("۰۱۲۳۴۵۶۷۸۹", "0123456789")))
+    return f"{int(m.group(3))} {MONTH_NAMES[int(m.group(2)) - 1]} {m.group(1)}" if m else None
+
+
+def calendar_intro(title, det):
+    """متن خبر برای آزمون‌های تقویم سراسری (که متن خبری ندارند)."""
+    subject = title if title.startswith(("آزمون", "فراخوان")) else "آزمون " + title
+    text = f"ثبت‌نام {subject} آغاز شده است"
+    end = _date_words(det.get("deadline", ""))
+    if end:
+        text += f"؛ علاقمندان می‌توانند تا {end} از طریق سامانه‌ی رسمی ثبت‌نام کنند"
+    exam = _date_words(det.get("exam", ""))
+    if exam:
+        text += f". آزمون در تاریخ {exam} برگزار می‌شود"
+    return text + "."
+
+
 def plain_post(item):
     """قالب مرتب بدون هوش مصنوعی (formatter.py)."""
     return {"relevant": True, "post": format_post(item["title"], item["summary"])}
@@ -321,8 +343,13 @@ def main():
             continue
         lines = res["post"].strip().split("\n")
         title_line = normalize_fa(lines[0])
+        if "خصوصی" in det.get("desc", ""):
+            print(f"[-] private (desc): {item['title']}")
+            continue
         if det.get("lead"):
             intro_text = clean(det["lead"])
+        elif item.get("pre"):
+            intro_text = calendar_intro(item["title"], det)
         else:
             intro_text = strip_heading(clean(item["summary"] or det.get("desc", "")).replace("...", ""), item["title"])
         intro = [f"📝 {sentence(_short(intro_text))}"] if intro_text else []
