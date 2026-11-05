@@ -10,6 +10,7 @@ import os
 import re
 import sys
 import time
+from difflib import SequenceMatcher
 from pathlib import Path
 
 import feedparser
@@ -184,8 +185,21 @@ def main():
     seen = load_json(SEEN_FILE, {"ids": [], "titles": []})
     first_run = not seen["ids"]
 
-    new = [i for i in fetch_items(sources)
-           if i["id"] not in seen["ids"] and norm_title(i["title"]) not in seen["titles"]]
+    def is_dup(t, pool):
+        # یک خبر از چند سایت با عنوان کمی متفاوت هم تکراری حساب شود
+        return any(t == o or SequenceMatcher(None, t, o).ratio() > 0.85 for o in pool)
+
+    new = []
+    batch_titles = []
+    for i in fetch_items(sources):
+        t = norm_title(i["title"])
+        if i["id"] in seen["ids"]:
+            continue
+        if is_dup(t, seen["titles"][-500:]) or is_dup(t, batch_titles):
+            seen["ids"].append(i["id"])
+            continue
+        batch_titles.append(t)
+        new.append(i)
     print(f"new items: {len(new)}")
 
     if first_run:
