@@ -210,6 +210,11 @@ def main():
             time.sleep(3)
         except Exception as e:
             print(f"[!] {e}")
+            # ارسال نشد؛ از فهرست دیده‌شده‌ها خارج شود تا دفعه‌ی بعد دوباره امتحان شود
+            seen["ids"].remove(item["id"])
+            seen["titles"].remove(norm_title(item["title"]))
+            if "404" in str(e) or "401" in str(e):
+                break  # توکن اشتباه است؛ بقیه را هم امتحان نکن
 
     # فقط ۲۰۰۰ مورد آخر نگه داشته شود
     seen["ids"] = seen["ids"][-2000:]
