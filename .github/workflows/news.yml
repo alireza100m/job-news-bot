@@ -33,7 +33,7 @@ jobs:
           EITAA_CHANNEL: ${{ secrets.EITAA_CHANNEL }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           AI_DISABLED: "1"   # سرویس هوش مصنوعی GitHub فعلاً پاسخ نمی‌دهد
-        run: DRY_RUN=1 MAX_POSTS_PER_RUN=8 python bot.py; git checkout seen.json
+        run: python bot.py
       - name: Save seen list
         run: |
           git config user.name "news-bot"
