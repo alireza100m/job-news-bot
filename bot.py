@@ -217,7 +217,10 @@ def main():
 
     new = []
     batch_titles = []
+    only = [w for w in os.environ.get("ONLY_TITLES", "").split("|") if w]  # برای انتشار دستی چند خبر خاص
     for i in fetch_items(sources):
+        if only and not any(w in i["title"] for w in only):
+            continue
         t = norm_title(i["title"])
         if i["id"] in seen["ids"]:
             continue
