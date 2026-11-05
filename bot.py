@@ -14,6 +14,7 @@ from difflib import SequenceMatcher
 from pathlib import Path
 
 import feedparser
+from formatter import format_post
 import requests
 
 BASE = Path(__file__).parent
@@ -129,14 +130,8 @@ def is_relevant(item):
 
 
 def plain_post(item):
-    """قالب ساده وقتی هوش مصنوعی در دسترس نیست."""
-    text = item["summary"]
-    if len(text) > 450:
-        text = text[:450].rsplit(" ", 1)[0] + " …"
-    post = f"🔸 <b>{item['title']}</b>"
-    if text and text != item["title"]:
-        post += f"\n\n📝 {text}"
-    return {"relevant": True, "post": post}
+    """قالب مرتب بدون هوش مصنوعی (formatter.py)."""
+    return {"relevant": True, "post": format_post(item["title"], item["summary"])}
 
 
 def ai_summarize(item):
