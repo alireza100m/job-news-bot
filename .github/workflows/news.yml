@@ -28,7 +28,8 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHANNEL: "@azmoonyar_estekhdam"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python debug_models.py; python bot.py
+          AI_DISABLED: "1"   # سرویس هوش مصنوعی GitHub فعلاً پاسخ نمی‌دهد
+        run: python bot.py
       - name: Save seen list
         run: |
           git config user.name "news-bot"

@@ -26,6 +26,7 @@ MODEL = os.environ.get("AI_MODEL", "openai/gpt-4o-mini")
 MAX_POSTS_PER_RUN = int(os.environ.get("MAX_POSTS_PER_RUN", "5"))
 FIRST_RUN_POSTS = 3  # در اولین اجرا فقط چند خبر آخر منتشر شود
 DRY_RUN = os.environ.get("DRY_RUN") == "1"
+AI_DISABLED = os.environ.get("AI_DISABLED") == "1"
 
 UA = {"User-Agent": "Mozilla/5.0 (compatible; JobNewsBot/1.0)"}
 
@@ -97,9 +98,34 @@ def fetch_items(sources):
     return items
 
 
+# فقط خبرهای دولتی / اداری / کارمندی (هر کلمه‌ای که در عنوان باشد کافی است)
+KEYWORDS = [
+    "آزمون", "استخدامی", "دولتی", "وزارت", "سازمان", "اداره", "شهرداری", "بانک",
+    "آموزش و پرورش", "دانشگاه", "نیروی انتظامی", "فراجا", "سپاه", "ارتش", "نظامی",
+    "کارمند", "اداری", "منشی", "فراخوان", "پیمانی", "قراردادی", "شرکت ملی",
+    "بیمارستان", "علوم پزشکی", "دادگستری", "قوه قضاییه", "تامین اجتماعی", "تأمین اجتماعی",
+    "نفت", "گاز", "برق", "مخابرات", "پست", "گمرک", "مالیات", "ثبت نام", "ثبت‌نام", "نتایج",
+]
+
+
+def is_relevant(item):
+    return any(k in item["title"] for k in KEYWORDS)
+
+
+def plain_post(item):
+    """قالب ساده وقتی هوش مصنوعی در دسترس نیست."""
+    text = item["summary"]
+    if len(text) > 450:
+        text = text[:450].rsplit(" ", 1)[0] + " …"
+    post = f"🔸 <b>{item['title']}</b>"
+    if text and text != item["title"]:
+        post += f"\n\n📝 {text}"
+    return {"relevant": True, "post": post}
+
+
 def ai_summarize(item):
-    if not GITHUB_TOKEN:
-        return {"relevant": True, "post": f"🔸 <b>{item['title']}</b>"}
+    if not GITHUB_TOKEN or AI_DISABLED:
+        return plain_post(item)
     prompt = PROMPT.replace("{title}", item["title"]).replace("{summary}", item["summary"])
     r = requests.post(
         "https://models.github.ai/inference/chat/completions",
@@ -158,11 +184,16 @@ def main():
     for item in new:
         if posted >= MAX_POSTS_PER_RUN:
             break  # بقیه برای اجرای بعدی می‌مانند
+        if not is_relevant(item):
+            seen["ids"].append(item["id"])
+            seen["titles"].append(norm_title(item["title"]))
+            print(f"[-] not gov/office: {item['title']}")
+            continue
         try:
             res = ai_summarize(item)
         except Exception as e:
-            print(f"[!] AI failed for {item['title']}: {e}")
-            continue  # دفعه‌ی بعد دوباره امتحان می‌شود
+            print(f"[!] AI failed, using plain format: {e}"[:300])
+            res = plain_post(item)
         seen["ids"].append(item["id"])
         seen["titles"].append(norm_title(item["title"]))
         if not res.get("relevant"):
