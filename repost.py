@@ -2,7 +2,7 @@
 
 REPOST_REMINDERS: بخشی از عنوان آزمون‌ها، جدا با |   (یادآوری مهلت)
 REPOST_WEEKLY=1: جمع‌بندی هفتگی
-REPOST_QUIZ=1: یک سؤال کوییز همین الان
+REPOST_QUIZ=1: یک سؤال کوییز همین الان (REPOST_TG_ONLY=1: بدون بله و ایتا)
 """
 import os
 
@@ -21,7 +21,9 @@ for part in [w for w in os.environ.get("REPOST_REMINDERS", "").split("|") if w]:
     bot.send_followup(tracked, key, "reminder", left)
 if os.environ.get("REPOST_QUIZ") == "1":
     import quiz
-    quiz.post(bot.TELEGRAM_TOKEN, bot.CHANNEL, bot.send_mirrors, force=True)
+    tg_only = os.environ.get("REPOST_TG_ONLY") == "1"  # آزمایشی: فقط تلگرام
+    quiz.post(bot.TELEGRAM_TOKEN, bot.CHANNEL,
+              (lambda *a, **k: None) if tg_only else bot.send_mirrors, force=True)
 if os.environ.get("REPOST_WEEKLY") == "1":
     bot.post_weekly(tracked)
 followups.save(tracked)

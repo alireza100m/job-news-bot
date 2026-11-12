@@ -12,6 +12,9 @@ on:
       quiz:
         description: "یک سؤال کوییز همین الان؟ (1 = بله)"
         default: "0"
+      tg_only:
+        description: "فقط تلگرام (بدون بله و ایتا)؟ (1 = بله)"
+        default: "0"
 
 permissions:
   contents: write
@@ -40,6 +43,7 @@ jobs:
           REPOST_REMINDERS: ${{ inputs.reminders }}
           REPOST_WEEKLY: ${{ inputs.weekly }}
           REPOST_QUIZ: ${{ inputs.quiz }}
+          REPOST_TG_ONLY: ${{ inputs.tg_only }}
         run: python repost.py
       - name: Save state
         run: |

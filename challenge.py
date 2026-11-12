@@ -23,7 +23,7 @@ TG = f"https://api.telegram.org/bot{TOKEN}"
 CHANNEL = "@" + os.environ.get("TELEGRAM_CHANNEL", "@azmoonyar_estekhdam").lstrip("@")
 BOT_USERNAME = os.environ.get("TELEGRAM_BOT_USERNAME", "estekhdam_news_bot")
 SUPPORT = os.environ.get("CHALLENGE_SUPPORT", "")    # آیدی پشتیبانی برای گرفتن جایزه
-APP_URL = os.environ.get("AZMOONYAR_APP_URL", "")
+APP_URL = os.environ.get("AZMOONYAR_APP_URL", "https://myket.ir/app/ir.azmoonyar.app")
 LEADERBOARD_DAY, LEADERBOARD_HOUR = 4, 21            # جمعه ساعت ۹ شب (Monday=0)
 TOP_N, WINNERS = 10, 3
 MAX_AGE_DAYS = 3                                     # فقط سؤال‌های ۳ روز اخیر امتیاز دارند
