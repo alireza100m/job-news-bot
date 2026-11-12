@@ -5,7 +5,9 @@
 سؤال‌های منتشرشده در quiz_state.json ثبت می‌شوند تا تکرار نشوند.
 """
 import json
+import os
 import random
+import time
 from pathlib import Path
 
 import requests
@@ -17,6 +19,7 @@ BANK = BASE / "quiz.json"
 STATE = BASE / "quiz_state.json"
 QUIZ_HOURS = [12, 20]   # دو سؤال در روز: ظهر و شب (وقت ایران)
 LETTERS = ["الف", "ب", "ج", "د", "ه"]
+BOT_USERNAME = os.environ.get("TELEGRAM_BOT_USERNAME", "estekhdam_news_bot")
 APP_URL = ""  # لینک دانلود اپ آزمون یار (خالی = بدون لینک)
 
 
@@ -59,6 +62,8 @@ def pick(bank, used):
 NOTE = ("📖 این سؤال از «منابع عمومی» هست که در همه‌ی آزمون‌های استخدامی میاد 📚؛ "
         "یادگرفتنش برای هر آزمونی که شرکت کنید مفیده ✅")
 CTA = "🎯 فکر می‌کنی جوابش رو بلدی؟ همین الان توی کوییز زیر خودتو امتحان کن 👇"
+CHALLENGE = ("🏆 با دکمه‌ی «جواب بده و امتیاز بگیر» زیر کوییز در چالش هفتگی شرکت کن؛ "
+             "به ۳ نفر اول هر هفته کد تخفیف اپ آزمون یار هدیه می‌دیم 🎁")
 
 
 def hashtags(q):
@@ -72,7 +77,7 @@ def intro_text(q, channel):
     """پیام کوتاه قبل از کوییز تلگرام (کوییز هشتگ قابل‌کلیک ندارد)."""
     topic = f" | {q['topic']}" if q.get("topic") else ""
     return (f"🧠 <b>سؤال روز{topic}</b>\n\n{NOTE}\n\n{app_promo()}\n\n{CTA}"
-            f"\n\n{hashtags(q)}")
+            f"\n\n{CHALLENGE}\n\n{hashtags(q)}")
 
 
 def plain_text(q, channel):
@@ -107,6 +112,9 @@ def post(tg_token, channel, send_mirrors, dry=False, force=False):
         "type": "quiz",
         "correct_option_id": q["answer"],
         "is_anonymous": True,
+        "reply_markup": json.dumps({"inline_keyboard": [[{
+            "text": "🏆 جواب بده و امتیاز بگیر (چالش هفته)",
+            "url": f"https://t.me/{BOT_USERNAME}?start=q_{q['id']}"}]]}),
     }
     if q.get("explain"):
         payload["explanation"] = q["explain"][:200]
@@ -124,6 +132,10 @@ def post(tg_token, channel, send_mirrors, dry=False, force=False):
         return
     send_mirrors(plain_text(q, channel))
     used.append(q["id"])
+    posted = state.setdefault("posted", {})  # برای چالش هفتگی: زمان انتشار هر سؤال
+    posted[q["id"]] = time.time()
+    for k in [k for k, t in posted.items() if time.time() - t > 7 * 86400]:
+        posted.pop(k)
     if slot is not None:
         today = extras.iran_now().strftime("%Y-%m-%d")
         if state.get("day") != today:

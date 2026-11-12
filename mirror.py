@@ -14,6 +14,8 @@ from pathlib import Path
 
 import requests
 
+import challenge
+
 TG = f"https://api.telegram.org/bot{os.environ['TELEGRAM_BOT_TOKEN']}"
 CHANNEL = os.environ.get("TELEGRAM_CHANNEL", "@azmoonyar_estekhdam").lstrip("@").lower()
 BALE_TOKEN = os.environ.get("BALE_BOT_TOKEN", "")
@@ -26,6 +28,7 @@ MAX_FILE = 20 * 1024 * 1024  # سقف دانلود فایل برای ربات ت
 BASE = Path(__file__).parent
 MAP_FILE = BASE / "mirror_map.json"          # پست‌های دستی: شناسه‌ی تلگرام ← شناسه‌ی بله
 BOT_MAP_FILE = BASE / "mirror_map_bot.json"  # پست‌های خودکار (bot.py می‌نویسد)
+SAVE_EVERY = 120   # ذخیره‌ی امتیازهای چالش هفتگی
 CHECK_EVERY = 90    # هر ۱.۵ دقیقه بررسی پست‌های حذف‌شده
 KEEP_SECONDS = 2 * 86400  # فقط پست‌های ۴۸ ساعت اخیر بررسی می‌شوند
 
@@ -154,6 +157,36 @@ def save_map(data):
     print("[git] push failed")
 
 
+def save_challenge(st):
+    """امتیازها (رمزنگاری‌شده) در مخزن ذخیره می‌شوند."""
+    challenge.save(st)
+    git("add", challenge.STATE_FILE.name)
+    if git("diff", "--cached", "--quiet").returncode == 0:
+        return
+    git("commit", "-q", "-m", "update challenge")
+    for _ in range(3):
+        git("pull", "-q", "--rebase")
+        if git("push", "-q").returncode == 0:
+            return
+        time.sleep(5)
+    print("[git] challenge push failed")
+
+
+def mirror_text(html_text):
+    """متن برترین‌های هفته در بله و ایتا (بدون HTML)."""
+    text = re.sub(r"<[^>]+>", "", html_text)
+    if BALE_TOKEN and BALE_CHANNEL:
+        try:
+            post_bale("sendMessage", {"chat_id": BALE_CHANNEL, "text": text})
+        except Exception as e:
+            print(f"[bale] failed: {e}"[:300])
+    if EITAA_TOKEN and EITAA_CHANNEL:
+        try:
+            post_eitaa("sendMessage", {"chat_id": EITAA_CHANNEL, "text": text})
+        except Exception as e:
+            print(f"[eitaa] failed: {e}"[:300])
+
+
 def tg_exists(msg_id):
     """تلگرام برای حذف پست در کانال رویدادی نمی‌فرستد. با یک ویرایش بی‌اثر می‌سنجیم:
     True: پست هست، None: معلوم نیست (پست‌های دستی را ربات نمی‌تواند ویرایش کند،
@@ -243,7 +276,20 @@ def main():
     data = load(MAP_FILE, {"posts": {}, "deleted": []})
     data.setdefault("deleted", [])
     next_check = 0
+    st = challenge.load()
+    dirty, next_save = False, time.time() + SAVE_EVERY
     while True:
+        try:
+            if challenge.leaderboard_due(st) and challenge.post_leaderboard(st, mirror_text):
+                dirty = True
+            if challenge.week_key() != st["week"] and st["week"] in st["posted_weeks"]:
+                challenge.roll_week(st)
+                dirty = True
+        except Exception as e:
+            print(f"[challenge] weekly failed: {e}"[:300])
+        if dirty and time.time() >= next_save:
+            save_challenge(st)
+            dirty, next_save = False, time.time() + SAVE_EVERY
         if time.time() >= next_check:
             try:
                 check_deleted(data)
@@ -251,7 +297,7 @@ def main():
                 print(f"[check] failed: {e}"[:300])
             next_check = time.time() + CHECK_EVERY
         params = {"timeout": 50 if deadline > time.time() else 0,
-                  "allowed_updates": '["channel_post"]'}
+                  "allowed_updates": '["channel_post","message","callback_query"]'}
         if offset is not None:
             params["offset"] = offset  # تأیید دریافت پست‌های قبلی
         try:
@@ -265,6 +311,12 @@ def main():
             sys.exit(1)
         for upd in r["result"]:
             offset = upd["update_id"] + 1
+            if "channel_post" not in upd:  # پیام‌های خصوصی چالش هفتگی
+                try:
+                    dirty |= bool(challenge.handle_update(upd, st))
+                except Exception as e:
+                    print(f"[challenge] update failed: {e}"[:300])
+                continue
             msg = upd.get("channel_post")
             if (msg and msg["chat"].get("username", "").lower() == CHANNEL
                     and msg.get("date", 0) >= SINCE):
@@ -280,6 +332,8 @@ def main():
                 time.sleep(1)
         if time.time() >= deadline:
             break
+    if dirty:
+        save_challenge(st)
     if offset is not None:  # تأیید نهایی تا دوباره فرستاده نشود
         requests.get(f"{TG}/getUpdates", params={"offset": offset, "limit": 1,
                                                  "timeout": 0}, timeout=30)
