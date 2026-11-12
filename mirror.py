@@ -6,6 +6,7 @@
 """
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -151,40 +152,74 @@ def save_map(data):
 
 
 def tg_exists(msg_id):
-    """تلگرام برای حذف پست در کانال رویدادی نمی‌فرستد؛ با یک ویرایش بی‌اثر وجود پست را می‌سنجیم.
-    True: هست، False: حذف شده، None: نامعلوم."""
+    """تلگرام برای حذف پست در کانال رویدادی نمی‌فرستد. با یک ویرایش بی‌اثر می‌سنجیم:
+    True: پست هست، None: معلوم نیست (پست‌های دستی را ربات نمی‌تواند ویرایش کند،
+    پس پیام «not found» هم برای پست موجود و هم حذف‌شده می‌آید)."""
     try:
         r = requests.post(f"{TG}/editMessageReplyMarkup", timeout=30, json={
             "chat_id": "@" + CHANNEL, "message_id": int(msg_id)}).json()
     except Exception:
-        return None
+        return True
     desc = (r.get("description") or "").lower()
     if r.get("ok") or "not modified" in desc:
         return True
-    if "not found" in desc:
-        return False
+    if "not found" in desc or "message_id_invalid" in desc:
+        return None
     print(f"[check] {msg_id}: {desc[:150]}")
-    return None
+    return True
+
+
+def public_ids(min_id):
+    """شناسه‌ی پست‌های موجود در صفحه‌ی عمومی کانال (t.me/s/...) از min_id به بعد.
+    اگر صفحه در دسترس نباشد None برمی‌گرداند."""
+    ids, before = set(), None
+    for _ in range(15):
+        url = f"https://t.me/s/{CHANNEL}" + (f"?before={before}" if before else "")
+        try:
+            page = requests.get(url, timeout=30, headers={"User-Agent": "Mozilla/5.0"}).text
+        except Exception:
+            return None
+        found = {int(x) for x in re.findall(rf'data-post="{CHANNEL}/(\d+)"', page, re.I)}
+        if not found:
+            return None if not ids else ids
+        ids |= found
+        if min(found) <= min_id:
+            break
+        before = min(found)
+    return ids
 
 
 def check_deleted(data):
-    """پست‌هایی که در تلگرام حذف شده‌اند را از بله هم حذف می‌کند (ایتایار حذف ندارد)."""
+    """پست‌هایی که در تلگرام حذف شده‌اند را از بله هم حذف می‌کند (ایتایار حذف ندارد).
+    پستی حذف‌شده حساب می‌شود که دو بار پشت سر هم در صفحه‌ی عمومی کانال نباشد."""
     git("pull", "-q", "--rebase")
     now = time.time()
     bot = load(BOT_MAP_FILE, {})
     posts = {**{k: v for k, v in bot.items() if k not in data["deleted"]}, **data["posts"]}
+    recent = {k: v for k, v in posts.items() if now - v["date"] <= KEEP_SECONDS}
+    if not recent:
+        return
+    public = public_ids(min(int(k) for k in recent))
+    if public is None:
+        print("[check] public page unavailable")
+        return
     changed = False
-    for tg_id, info in posts.items():
-        if now - info["date"] > KEEP_SECONDS:
+    missing = data.setdefault("missing", [])
+    still_missing = []
+    for tg_id, info in recent.items():
+        if int(tg_id) in public or int(tg_id) > max(public) or tg_exists(tg_id):
             continue
-        if tg_exists(tg_id) is False:
-            print(f"post {tg_id} deleted in Telegram")
-            if BALE_TOKEN and BALE_CHANNEL and info.get("bale"):
-                post_bale("deleteMessage", {"chat_id": BALE_CHANNEL, "message_id": info["bale"]})
-            data["posts"].pop(tg_id, None)
-            data["deleted"].append(tg_id)
-            changed = True
+        if tg_id not in missing:  # بار اول: صبر تا بررسی بعدی
+            still_missing.append(tg_id)
+            continue
+        print(f"post {tg_id} deleted in Telegram")
+        if BALE_TOKEN and BALE_CHANNEL and info.get("bale"):
+            post_bale("deleteMessage", {"chat_id": BALE_CHANNEL, "message_id": info["bale"]})
+        data["posts"].pop(tg_id, None)
+        data["deleted"].append(tg_id)
+        changed = True
         time.sleep(0.2)
+    data["missing"] = still_missing
     old = [k for k, v in data["posts"].items() if now - v["date"] > KEEP_SECONDS]
     for k in old:
         data["posts"].pop(k)
@@ -199,6 +234,7 @@ def main():
     deadline = time.time() + 60 * float(os.environ.get("MIRROR_MINUTES", "0"))
     offset = None
     data = load(MAP_FILE, {"posts": {}, "deleted": []})
+    data.setdefault("deleted", [])
     next_check = 0
     while True:
         if time.time() >= next_check:
