@@ -19,6 +19,7 @@ BANK = BASE / "quiz.json"
 STATE = BASE / "quiz_state.json"
 QUIZ_HOURS = [12, 20]   # دو سؤال در روز: ظهر و شب (وقت ایران)
 LETTERS = ["الف", "ب", "ج", "د", "ه"]
+CHALLENGE_ON = False   # چالش هفتگی (دکمه‌ی سؤال ویژه): فعلاً خاموش تا کانال عضو بیشتری بگیرد
 BOT_USERNAME = os.environ.get("TELEGRAM_BOT_USERNAME", "estekhdam_news_bot")
 APP_URL = "https://myket.ir/app/ir.azmoonyar.app"  # لینک دانلود اپ آزمون یار (خالی = بدون لینک)
 
@@ -77,7 +78,7 @@ def intro_text(q, channel):
     """پیام کوتاه قبل از کوییز تلگرام (کوییز هشتگ قابل‌کلیک ندارد)."""
     topic = f" | {q['topic']}" if q.get("topic") else ""
     return (f"🧠 <b>سؤال روز{topic}</b>\n\n{NOTE}\n\n{app_promo()}\n\n{CTA}"
-            f"\n\n{CHALLENGE}\n\n{hashtags(q)}")
+            + (f"\n\n{CHALLENGE}" if CHALLENGE_ON else "") + f"\n\n{hashtags(q)}")
 
 
 def plain_text(q, channel):
@@ -116,10 +117,11 @@ def post(tg_token, channel, send_mirrors, dry=False, force=False):
         "type": "quiz",
         "correct_option_id": q["answer"],
         "is_anonymous": True,
-        "reply_markup": json.dumps({"inline_keyboard": [[{
-            "text": "🏆 سؤال ویژه‌ی چالش هفته (امتیاز + جایزه)",
-            "url": f"https://t.me/{BOT_USERNAME}?start=q_{(special or q)['id']}"}]]}),
     }
+    if CHALLENGE_ON:
+        payload["reply_markup"] = json.dumps({"inline_keyboard": [[{
+            "text": "🏆 سؤال ویژه‌ی چالش هفته (امتیاز + جایزه)",
+            "url": f"https://t.me/{BOT_USERNAME}?start=q_{(special or q)['id']}"}]]})
     if q.get("explain"):
         payload["explanation"] = q["explain"][:200]
     if dry:
@@ -137,7 +139,7 @@ def post(tg_token, channel, send_mirrors, dry=False, force=False):
     send_mirrors(plain_text(q, channel))
     used.append(q["id"])
     posted = state.setdefault("posted", {})  # برای چالش هفتگی: زمان انتشار هر سؤال
-    if special:
+    if special and CHALLENGE_ON:
         posted[special["id"]] = time.time()
         cused.append(special["id"])
     for k in [k for k, t in posted.items() if time.time() - t > 7 * 86400]:
