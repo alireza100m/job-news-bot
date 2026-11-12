@@ -257,7 +257,20 @@ def send(text):
     )
     if not r.ok:
         raise RuntimeError(f"Telegram error: {r.text}")
-    send_mirrors(text)
+    bale_id = send_mirrors(text)
+    if bale_id:  # برای حذف خودکار در بله اگر پست در تلگرام حذف شد (mirror.py)
+        record_bot_mirror(r.json()["result"]["message_id"], bale_id)
+
+
+BOT_MAP_FILE = BASE / "mirror_map_bot.json"
+
+
+def record_bot_mirror(tg_id, bale_id):
+    data = load_json(BOT_MAP_FILE, {})
+    now = int(time.time())
+    data = {k: v for k, v in data.items() if now - v["date"] < 3 * 86400}
+    data[str(tg_id)] = {"bale": bale_id, "date": now}
+    BOT_MAP_FILE.write_text(json.dumps(data), encoding="utf-8")
 
 
 def plain_text(text):
@@ -266,13 +279,17 @@ def plain_text(text):
 
 
 def send_mirrors(text):
-    """ارسال همان خبر به بله و ایتا؛ خطای آن‌ها انتشار در تلگرام را متوقف نمی‌کند."""
+    """ارسال همان خبر به بله و ایتا؛ خطای آن‌ها انتشار در تلگرام را متوقف نمی‌کند.
+    شناسه‌ی پیام بله را برمی‌گرداند."""
     plain = plain_text(text)
+    bale_id = None
     if BALE_TOKEN and BALE_CHANNEL:
         try:
             r = requests.post(f"https://tapi.bale.ai/bot{BALE_TOKEN}/sendMessage",
                               json={"chat_id": BALE_CHANNEL, "text": plain}, timeout=30)
             print(f"[bale] {r.status_code} {r.text[:200]}" if not r.ok else "[bale] ok")
+            if r.ok:
+                bale_id = r.json().get("result", {}).get("message_id")
         except Exception as e:
             print(f"[bale] failed: {e}"[:300])
     if EITAA_TOKEN and EITAA_CHANNEL:
@@ -282,6 +299,7 @@ def send_mirrors(text):
             print(f"[eitaa] {r.status_code} {r.text[:200]}" if not r.ok else "[eitaa] ok")
         except Exception as e:
             print(f"[eitaa] failed: {e}"[:300])
+    return bale_id
 
 
 def main():
