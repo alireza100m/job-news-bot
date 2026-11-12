@@ -10,6 +10,7 @@ import hashlib
 import html
 import json
 import os
+import subprocess
 import time
 from pathlib import Path
 
@@ -72,7 +73,16 @@ def _bank():
         return {}
 
 
-def _posted():
+def _posted(qid=None):
+    """زمان انتشار سؤال‌ها؛ اگر سؤال تازه هنوز نرسیده، یک بار مخزن به‌روز می‌شود."""
+    posted = _read_posted()
+    if qid and qid not in posted:
+        subprocess.run(["git", "pull", "-q", "--rebase"], cwd=BASE, capture_output=True)
+        posted = _read_posted()
+    return posted
+
+
+def _read_posted():
     try:
         return json.loads((BASE / "quiz_state.json").read_text(encoding="utf-8")).get("posted", {})
     except Exception:
@@ -142,7 +152,7 @@ def handle_update(upd, st):
     if text.startswith("/start q_"):
         qid = text.split("q_", 1)[1].strip()
         q = _bank().get(qid)
-        posted = _posted().get(qid, 0)
+        posted = _posted(qid).get(qid, 0)
         if not q or time.time() - posted > MAX_AGE_DAYS * 86400:
             _api("sendMessage", chat_id=chat_id, parse_mode="HTML",
                  text="⏳ مهلت امتیاز این سؤال تمام شده؛ سؤال‌های تازه را در کانال دنبال کن.\n\n"
@@ -167,7 +177,7 @@ def _on_answer(cq, st):
     _, qid, idx = data.split("|")
     uid = str(cq["from"]["id"])
     q = _bank().get(qid)
-    if not q or time.time() - _posted().get(qid, 0) > MAX_AGE_DAYS * 86400:
+    if not q or time.time() - _posted(qid).get(qid, 0) > MAX_AGE_DAYS * 86400:
         _api("answerCallbackQuery", callback_query_id=cq["id"], text="مهلت این سؤال تمام شده")
         return False
     u = st["users"].setdefault(uid, {"name": "", "score": 0, "answered": []})
