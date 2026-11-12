@@ -62,7 +62,7 @@ def pick(bank, used):
 NOTE = ("📖 این سؤال از «منابع عمومی» هست که در همه‌ی آزمون‌های استخدامی میاد 📚؛ "
         "یادگرفتنش برای هر آزمونی که شرکت کنید مفیده ✅")
 CTA = "🎯 فکر می‌کنی جوابش رو بلدی؟ همین الان توی کوییز زیر خودتو امتحان کن 👇"
-CHALLENGE = ("🏆 با دکمه‌ی «جواب بده و امتیاز بگیر» زیر کوییز در چالش هفتگی شرکت کن؛ "
+CHALLENGE = ("🏆 با دکمه‌ی زیر کوییز یک «سؤال ویژه» بگیر و در چالش هفتگی امتیاز جمع کن؛ "
              "به ۳ نفر اول هر هفته کد تخفیف اپ آزمون یار هدیه می‌دیم 🎁")
 
 
@@ -104,6 +104,10 @@ def post(tg_token, channel, send_mirrors, dry=False, force=False):
     q = pick(bank, used)
     if not q:
         return
+    # سؤال ویژه‌ی چالش: سؤالی جدا که در کانال دیده نشده تا جوابش از کوییز معلوم نشود
+    cused = state.setdefault("challenge_used", [])
+    pool = [x for x in bank if x["id"] != q["id"] and x["id"] not in used]
+    special = pick(pool, cused) if pool else None
     topic = f" | {q['topic']}" if q.get("topic") else ""
     payload = {
         "chat_id": channel,
@@ -113,8 +117,8 @@ def post(tg_token, channel, send_mirrors, dry=False, force=False):
         "correct_option_id": q["answer"],
         "is_anonymous": True,
         "reply_markup": json.dumps({"inline_keyboard": [[{
-            "text": "🏆 جواب بده و امتیاز بگیر (چالش هفته)",
-            "url": f"https://t.me/{BOT_USERNAME}?start=q_{q['id']}"}]]}),
+            "text": "🏆 سؤال ویژه‌ی چالش هفته (امتیاز + جایزه)",
+            "url": f"https://t.me/{BOT_USERNAME}?start=q_{(special or q)['id']}"}]]}),
     }
     if q.get("explain"):
         payload["explanation"] = q["explain"][:200]
@@ -133,7 +137,9 @@ def post(tg_token, channel, send_mirrors, dry=False, force=False):
     send_mirrors(plain_text(q, channel))
     used.append(q["id"])
     posted = state.setdefault("posted", {})  # برای چالش هفتگی: زمان انتشار هر سؤال
-    posted[q["id"]] = time.time()
+    if special:
+        posted[special["id"]] = time.time()
+        cused.append(special["id"])
     for k in [k for k, t in posted.items() if time.time() - t > 7 * 86400]:
         posted.pop(k)
     if slot is not None:

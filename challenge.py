@@ -118,7 +118,7 @@ def _score_text(st, uid):
     u = st["users"].get(uid)
     if not u:
         return ("🏆 هنوز در چالش این هفته امتیازی نداری.\n"
-                f"زیر هر «سؤال روز» در کانال {CHANNEL} دکمه‌ی «جواب بده و امتیاز بگیر» را بزن.")
+                f"زیر هر «سؤال روز» در کانال {CHANNEL} دکمه‌ی «سؤال ویژه‌ی چالش هفته» را بزن.")
     rank, total = _rank(st, uid)
     return (f"🏆 امتیاز این هفته‌ی تو: <b>{_fa(u['score'])}</b>\n"
             f"📊 رتبه: {_fa(rank)} از {_fa(total)} نفر\n"
@@ -135,7 +135,7 @@ def _send_question(chat_id, q, uid, st):
     kb = [[{"text": f"{LETTERS[i]}) {o}"[:60], "callback_data": f"a|{q['id']}|{i}"}]
           for i, o in enumerate(q["options"])]
     _api("sendMessage", chat_id=chat_id, parse_mode="HTML",
-         text=f"🧠 <b>چالش هفته | {q.get('topic', 'سؤال روز')}</b>\n\n❓ {q['q']}\n\n{opts}\n\n"
+         text=f"🧠 <b>چالش هفته | سؤال ویژه | {q.get('topic', '')}</b>\n\n❓ {q['q']}\n\n{opts}\n\n"
               "👇 گزینه‌ی درست را انتخاب کن (فقط یک بار):",
          reply_markup={"inline_keyboard": kb})
 
