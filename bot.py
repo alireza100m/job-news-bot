@@ -21,6 +21,7 @@ import followups
 import extras
 import image
 import pinned
+import quiz
 import requests
 
 BASE = Path(__file__).parent
@@ -595,6 +596,11 @@ def main():
             seen["weekly"] = extras.iran_now().strftime("%Y-%m-%d")
     except Exception as e:
         print(f"[!] weekly: {e}"[:300])
+    # کوییز روزانه (اگر بانک سؤال quiz.json پر باشد)
+    try:
+        quiz.post(TELEGRAM_TOKEN, CHANNEL, send_mirrors, DRY_RUN)
+    except Exception as e:
+        print(f"[!] quiz: {e}"[:300])
     # پست سنجاق‌شده‌ی تقویم ثبت‌نام‌ها (فقط اگر تغییری کرده باشد ویرایش می‌شود)
     if os.environ.get("PINNED_DISABLED") != "1":
         try:
