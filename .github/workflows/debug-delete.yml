@@ -1,0 +1,18 @@
+name: debug delete check
+on:
+  push:
+    branches: [claude/project-thread-6k3tbi]
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          T: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: |
+          for id in 84 85 86 87 88 89 90 91 92 99999; do
+            echo "== $id editMessageReplyMarkup"
+            curl -s -X POST "https://api.telegram.org/bot$T/editMessageReplyMarkup" -H 'Content-Type: application/json' -d "{\"chat_id\":\"@azmoonyar_estekhdam\",\"message_id\":$id}"; echo
+          done
+          echo "== public ids"; curl -s "https://t.me/s/azmoonyar_estekhdam" | grep -o 'data-post="[^"]*"' | tr "\n" " "; echo
+          for id in 84 85 90; do echo "== embed $id"; curl -s "https://t.me/azmoonyar_estekhdam/$id?embed=1&mode=tme" | grep -o 'tgme_widget_message_error[^<]*<[^<]*\|tgme_widget_message_bubble' | head -2; done
+          echo "== getMe"; curl -s "https://api.telegram.org/bot$T/getMe" | head -c 200; echo
