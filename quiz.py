@@ -30,7 +30,7 @@ def app_promo(html_links=True):
             "اپلیکیشن «آزمون یار» رو دانلود کن")
     if APP_URL:
         if html_links:
-            return f'{text}:\n👈 <a href="{APP_URL}">دانلود اپ آزمون یار</a>'
+            return f'<b>{text}:\n👈 <a href="{APP_URL}">دانلود اپ آزمون یار</a></b>'
         return f"{text}:\n👈 {APP_URL}"
     return text + "."
 
