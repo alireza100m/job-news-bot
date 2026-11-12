@@ -15,7 +15,7 @@ import extras
 BASE = Path(__file__).parent
 BANK = BASE / "quiz.json"
 STATE = BASE / "quiz_state.json"
-QUIZ_HOUR = 12     # از ساعت ۱۲ ظهر به بعد (وقت ایران)
+QUIZ_HOURS = [12, 20]   # دو سؤال در روز: ظهر و شب (وقت ایران)
 LETTERS = ["الف", "ب", "ج", "د", "ه"]
 
 
@@ -27,8 +27,14 @@ def _load(path, default):
 
 
 def due(state):
+    """نوبت بعدی امروز که رسیده و هنوز منتشر نشده (یا None)."""
     now = extras.iran_now()
-    return now.hour >= QUIZ_HOUR and state.get("last") != now.strftime("%Y-%m-%d")
+    today = now.strftime("%Y-%m-%d")
+    done = state.get("slots", []) if state.get("day") == today else []
+    for h in QUIZ_HOURS:
+        if now.hour >= h and h not in done:
+            return h
+    return None
 
 
 def pick(bank, used):
@@ -52,10 +58,12 @@ def plain_text(q, channel):
     return text + f"\n\n📚 سؤال‌های بیشتر در اپ «آزمون یار»\n🆔 {channel}"
 
 
-def post(tg_token, channel, send_mirrors, dry=False):
+def post(tg_token, channel, send_mirrors, dry=False, force=False):
+    """force: همین الان یک سؤال (جدا از نوبت‌های روزانه)."""
     bank = _load(BANK, [])
     state = _load(STATE, {})
-    if not bank or not due(state):
+    slot = None if force else due(state)
+    if not bank or (slot is None and not force):
         return
     used = state.setdefault("used", [])
     q = pick(bank, used)
@@ -81,6 +89,10 @@ def post(tg_token, channel, send_mirrors, dry=False):
         return
     send_mirrors(plain_text(q, channel))
     used.append(q["id"])
-    state["last"] = extras.iran_now().strftime("%Y-%m-%d")
+    if slot is not None:
+        today = extras.iran_now().strftime("%Y-%m-%d")
+        if state.get("day") != today:
+            state["day"], state["slots"] = today, []
+        state["slots"].append(slot)
     STATE.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
     print(f"[✓] quiz posted: {q['id']}")
