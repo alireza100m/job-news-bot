@@ -26,6 +26,7 @@ SUPPORT = os.environ.get("CHALLENGE_SUPPORT", "")    # آیدی پشتیبانی
 APP_URL = os.environ.get("AZMOONYAR_APP_URL", "https://myket.ir/app/ir.azmoonyar.app")
 LEADERBOARD_DAY, LEADERBOARD_HOUR = 4, 21            # جمعه ساعت ۹ شب (Monday=0)
 TOP_N, WINNERS = 10, 3
+FIRST_WEEK = "2026-11-14"                            # هفته‌ی آزمایشی قبل از این، اعلام نمی‌شود
 MAX_AGE_DAYS = 3                                     # فقط سؤال‌های ۳ روز اخیر امتیاز دارند
 LETTERS = ["الف", "ب", "ج", "د"]
 FA = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
@@ -201,6 +202,10 @@ def roll_week(st):
 def leaderboard_due(st):
     """جمعه از ساعت ۹ شب؛ اگر آن موقع ربات خاموش بود، اول هفته‌ی بعد (قبل از صفر شدن)."""
     if st["week"] in st["posted_weeks"]:
+        return False
+    if st["week"] < FIRST_WEEK:  # هفته‌ی آزمایشی: بدون اعلام، فقط صفر شود
+        if week_key() != st["week"]:
+            st["posted_weeks"].append(st["week"])  # تا roll_week امتیازها را صفر کند
         return False
     now = iran_now()
     return week_key(now) != st["week"] or (now.weekday() == LEADERBOARD_DAY
