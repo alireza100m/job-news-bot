@@ -280,7 +280,7 @@ def main():
     dirty, next_save = False, time.time() + SAVE_EVERY
     while True:
         try:
-            if challenge.leaderboard_due(st) and challenge.post_leaderboard(st, mirror_text):
+            if challenge.ENABLED and challenge.leaderboard_due(st) and challenge.post_leaderboard(st, mirror_text):
                 dirty = True
             if challenge.week_key() != st["week"] and st["week"] in st["posted_weeks"]:
                 challenge.roll_week(st)

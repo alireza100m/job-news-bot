@@ -17,6 +17,7 @@ from pathlib import Path
 import requests
 from cryptography.fernet import Fernet, InvalidToken
 
+ENABLED = False  # فعلاً خاموش (اعلام برترین‌ها نمی‌شود؛ quiz.CHALLENGE_ON هم خاموش است)
 BASE = Path(__file__).parent
 STATE_FILE = BASE / "challenge.enc"
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
