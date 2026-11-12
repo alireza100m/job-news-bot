@@ -207,7 +207,7 @@ def check_deleted(data):
     missing = data.setdefault("missing", [])
     still_missing = []
     for tg_id, info in recent.items():
-        if int(tg_id) in public or int(tg_id) > max(public) or tg_exists(tg_id):
+        if int(tg_id) in public or now - info["date"] < 180 or tg_exists(tg_id):
             continue
         if tg_id not in missing:  # بار اول: صبر تا بررسی بعدی
             still_missing.append(tg_id)
