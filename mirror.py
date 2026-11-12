@@ -26,7 +26,7 @@ MAX_FILE = 20 * 1024 * 1024  # سقف دانلود فایل برای ربات ت
 BASE = Path(__file__).parent
 MAP_FILE = BASE / "mirror_map.json"          # پست‌های دستی: شناسه‌ی تلگرام ← شناسه‌ی بله
 BOT_MAP_FILE = BASE / "mirror_map_bot.json"  # پست‌های خودکار (bot.py می‌نویسد)
-CHECK_EVERY = 300   # هر ۵ دقیقه بررسی پست‌های حذف‌شده
+CHECK_EVERY = 90    # هر ۱.۵ دقیقه بررسی پست‌های حذف‌شده
 KEEP_SECONDS = 2 * 86400  # فقط پست‌های ۴۸ ساعت اخیر بررسی می‌شوند
 
 MEDIA = [  # (نوع در تلگرام، متد بله، نام فیلد)
@@ -210,7 +210,7 @@ def check_deleted(data):
     missing = data.setdefault("missing", [])
     still_missing = []
     for tg_id, info in recent.items():
-        if int(tg_id) in public or now - info["date"] < 180 or tg_exists(tg_id):
+        if int(tg_id) in public or now - info["date"] < 60 or tg_exists(tg_id):
             continue
         if tg_id not in missing:  # بار اول: صبر تا بررسی بعدی
             still_missing.append(tg_id)
