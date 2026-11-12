@@ -18,6 +18,7 @@ from formatter import format_post, normalize_fa, sentence, strip_heading, _short
 from details import fetch_details, details_lines, is_expired
 from ee_calendar import fetch_calendar
 import followups
+import extras
 import requests
 
 BASE = Path(__file__).parent
@@ -313,7 +314,7 @@ def footer():
             + f"\n🆔 {CHANNEL}")
 
 
-def followup_text(head, intro, info, reg_url, label):
+def followup_text(head, intro, info, reg_url, label, tags=""):
     """پست پیگیری (یادآوری/کارت/نتایج) با همان قالب پست‌های اصلی."""
     body = normalize_fa(head) + "\n\n📝 " + normalize_fa(intro)
     if info:
@@ -321,6 +322,8 @@ def followup_text(head, intro, info, reg_url, label):
     text = safe_html(body)
     if reg_url:
         text += f'\n\n🔗 <a href="{html.escape(reg_url)}">{label}</a>'
+    if tags:
+        text += "\n\n" + tags
     return text + footer()
 
 
@@ -330,7 +333,8 @@ def send_followup(tracked, key, kind, left=None, reg_url=None):
         parts = followups.reminder_post(t, left)
     else:
         parts = followups.stage_post(t, kind)
-    send(followup_text(*parts[:3], reg_url or t.get("reg_url"), parts[3]))
+    send(followup_text(*parts[:3], reg_url or t.get("reg_url"), parts[3],
+                       extras.hashtags(t["title"], kind)))
     if kind == "reminder":
         t["reminded_for"] = t["deadline"]
     else:
@@ -484,7 +488,7 @@ def main():
         if det.get("reg_url"):
             label = "سایت رسمی ثبت‌نام (بعد از شروع ثبت‌نام)" if det.get("phase") == "soon" else "ورود به سایت رسمی ثبت‌نام"
             text += f'\n\n🔗 <a href="{html.escape(det["reg_url"])}">{label}</a>'
-        text = text + footer()
+        text += "\n\n" + extras.hashtags(item["title"], "soon" if is_soon else None) + footer()
         try:
             send(text)
             posted += 1
@@ -509,6 +513,18 @@ def main():
         fu_posted += run_followups(tracked, MAX_FOLLOWUPS_PER_RUN - fu_posted)
     except Exception as e:  # پیگیری نباید انتشار اخبار را خراب کند
         print(f"[!] follow-ups: {e}"[:300])
+    # پنجشنبه‌ها: جمع‌بندی همه‌ی ثبت‌نام‌های باز
+    try:
+        if extras.weekly_due(seen.get("weekly")):
+            rows = extras.open_registrations(tracked, CALENDAR)
+            if rows:
+                head, intro, lines = extras.weekly_post(rows)
+                send(safe_html(head + "\n\n" + intro) + "\n\n" + html.escape("\n".join(lines), quote=False)
+                     + "\n\n" + extras.hashtags("", "weekly") + footer())
+                print(f"[✓] weekly summary: {len(rows)} items")
+            seen["weekly"] = extras.iran_now().strftime("%Y-%m-%d")
+    except Exception as e:
+        print(f"[!] weekly: {e}"[:300])
     followups.save(tracked)
     print(f"follow-ups posted: {fu_posted}")
 
