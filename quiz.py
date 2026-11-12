@@ -17,6 +17,17 @@ BANK = BASE / "quiz.json"
 STATE = BASE / "quiz_state.json"
 QUIZ_HOURS = [12, 20]   # دو سؤال در روز: ظهر و شب (وقت ایران)
 LETTERS = ["الف", "ب", "ج", "د", "ه"]
+APP_URL = ""  # لینک دانلود اپ آزمون یار (خالی = بدون لینک)
+
+
+def app_promo(html_links=True):
+    """تبلیغ اپ: صدها تست دیگر از همین منابع."""
+    text = "📲 برای دسترسی به همه‌ی تست‌های منابع عمومی و تمرین کامل، اپ «آزمون یار» رو دانلود کن"
+    if APP_URL:
+        if html_links:
+            return f'{text}:\n👈 <a href="{APP_URL}">دانلود اپ آزمون یار</a>'
+        return f"{text}:\n👈 {APP_URL}"
+    return text + "."
 
 
 def _load(path, default):
@@ -60,7 +71,7 @@ def hashtags(q):
 def intro_text(q, channel):
     """پیام کوتاه قبل از کوییز تلگرام (کوییز هشتگ قابل‌کلیک ندارد)."""
     topic = f" | {q['topic']}" if q.get("topic") else ""
-    return (f"🧠 <b>سؤال روز{topic}</b>\n\n{NOTE}\n\n{CTA}"
+    return (f"🧠 <b>سؤال روز{topic}</b>\n\n{NOTE}\n\n{app_promo()}\n\n{CTA}"
             f"\n\n{hashtags(q)}")
 
 
@@ -74,7 +85,7 @@ def plain_text(q, channel):
             f"✅ پاسخ درست: {ans}")
     if q.get("explain"):
         text += f"\n💡 {q['explain']}"
-    return text + f"\n\n{hashtags(q)}\n\n📚 سؤال‌های بیشتر در اپ «آزمون یار»\n🆔 {channel}"
+    return text + f"\n\n{app_promo(False)}\n\n{hashtags(q)}\n🆔 {channel}"
 
 
 def post(tg_token, channel, send_mirrors, dry=False, force=False):
