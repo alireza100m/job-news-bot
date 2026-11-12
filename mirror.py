@@ -71,7 +71,10 @@ def post_bale(method, data, files=None):
     r = requests.post(f"https://tapi.bale.ai/bot{BALE_TOKEN}/{method}",
                       data=data, files=files, timeout=120)
     print(f"[bale] {method} {'ok' if r.ok else r.status_code} {'' if r.ok else r.text[:200]}")
-    return r.json().get("result", {}).get("message_id") if r.ok else None
+    if not r.ok:
+        return None
+    res = r.json().get("result")
+    return res.get("message_id") if isinstance(res, dict) else res
 
 
 def post_eitaa(method, data, files=None):
@@ -214,7 +217,11 @@ def check_deleted(data):
             continue
         print(f"post {tg_id} deleted in Telegram")
         if BALE_TOKEN and BALE_CHANNEL and info.get("bale"):
-            post_bale("deleteMessage", {"chat_id": BALE_CHANNEL, "message_id": info["bale"]})
+            try:
+                post_bale("deleteMessage", {"chat_id": BALE_CHANNEL,
+                                            "message_id": info["bale"]})
+            except Exception as e:
+                print(f"[bale] delete failed: {e}"[:300])
         data["posts"].pop(tg_id, None)
         data["deleted"].append(tg_id)
         changed = True
