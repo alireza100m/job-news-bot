@@ -45,8 +45,9 @@ def pick(bank, used):
     return random.choice(fresh) if fresh else None
 
 
-NOTE = ("📖 این سؤال از «منابع عمومی» است که در همه‌ی آزمون‌های استخدامی می‌آید؛ "
-        "یادگرفتنش برای هر آزمونی که شرکت کنید به کارتان می‌آید.")
+NOTE = ("📖 این سؤال از «منابع عمومی» هست که در همه‌ی آزمون‌های استخدامی میاد 📚؛ "
+        "یادگرفتنش برای هر آزمونی که شرکت کنید مفیده ✅")
+CTA = "🎯 فکر می‌کنی جوابش رو بلدی؟ همین الان توی کوییز زیر امتحانش کن و ببین چند درصد مثل تو درست جواب دادن! 👇"
 
 
 def hashtags(q):
@@ -59,7 +60,7 @@ def hashtags(q):
 def intro_text(q, channel):
     """پیام کوتاه قبل از کوییز تلگرام (کوییز هشتگ قابل‌کلیک ندارد)."""
     topic = f" | {q['topic']}" if q.get("topic") else ""
-    return (f"🧠 <b>سؤال روز{topic}</b>\n\n{NOTE}\n\n👇 جواب خودتان را در کوییز زیر بزنید."
+    return (f"🧠 <b>سؤال روز{topic}</b>\n\n{NOTE}\n\n{CTA}"
             f"\n\n{hashtags(q)}")
 
 
@@ -69,7 +70,7 @@ def plain_text(q, channel):
     opts = "\n".join(f"{LETTERS[i]}) {o}" for i, o in enumerate(q["options"]))
     ans = f"{LETTERS[q['answer']]}) {q['options'][q['answer']]}"
     text = (f"🧠 سؤال روز آزمون‌های استخدامی{topic}\n\n{NOTE}\n\n❓ {q['q']}\n\n{opts}\n\n"
-            f"👇 اول خودتان جواب بدهید، بعد پاسخ را ببینید 👇\n.\n.\n.\n.\n"
+            f"🎯 فکر می‌کنی جوابش رو بلدی؟ اول خودت جواب بده، بعد پاسخ رو پایین ببین! 👇\n.\n.\n.\n.\n"
             f"✅ پاسخ درست: {ans}")
     if q.get("explain"):
         text += f"\n💡 {q['explain']}"
