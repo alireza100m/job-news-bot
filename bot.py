@@ -20,6 +20,7 @@ from ee_calendar import fetch_calendar
 import followups
 import extras
 import image
+import pinned
 import requests
 
 BASE = Path(__file__).parent
@@ -294,9 +295,11 @@ def send(text, photo=None):
         )
     if not r.ok:
         raise RuntimeError(f"Telegram error: {r.text}")
+    tg_id = r.json()["result"]["message_id"]
     bale_id = send_mirrors(text, photo)
     if bale_id:  # برای حذف خودکار در بله اگر پست در تلگرام حذف شد (mirror.py)
-        record_bot_mirror(r.json()["result"]["message_id"], bale_id)
+        record_bot_mirror(tg_id, bale_id)
+    return tg_id
 
 
 BOT_MAP_FILE = BASE / "mirror_map_bot.json"
@@ -560,7 +563,7 @@ def main():
             start = followups.date_words(det.get("start"))
             sub = (f"شروع ثبت‌نام: {start}" if is_soon and start
                    else f"مهلت ثبت‌نام: تا {end}" if end and not is_soon else None)
-            send(text, make_image(title_line, "soon" if is_soon else None, sub))
+            tg_id = send(text, make_image(title_line, "soon" if is_soon else None, sub))
             posted += 1
             print(f"[✓] posted: {item['title']}")
             if followups.stage_of(item["title"]):
@@ -570,6 +573,8 @@ def main():
                     followups.mark_done(tracked, k, followups.stage_of(item["title"]))
             else:
                 followups.track(tracked, item, det)
+                if tg_id:  # برای لینک دادن از پست سنجاق‌شده
+                    tracked[item["link"] or item["id"]]["msg"] = tg_id
             time.sleep(3)
         except Exception as e:
             print(f"[!] {e}")
@@ -590,6 +595,12 @@ def main():
             seen["weekly"] = extras.iran_now().strftime("%Y-%m-%d")
     except Exception as e:
         print(f"[!] weekly: {e}"[:300])
+    # پست سنجاق‌شده‌ی تقویم ثبت‌نام‌ها (فقط اگر تغییری کرده باشد ویرایش می‌شود)
+    if os.environ.get("PINNED_DISABLED") != "1":
+        try:
+            pinned.update(tracked, CALENDAR, TELEGRAM_TOKEN, CHANNEL, BALE_TOKEN, BALE_CHANNEL, DRY_RUN)
+        except Exception as e:
+            print(f"[!] pinned: {e}"[:300])
     followups.save(tracked)
     print(f"follow-ups posted: {fu_posted}")
 
