@@ -144,13 +144,21 @@ def name_tokens(title):
     return {w for w in words if len(w) > 1 and w not in STOP}
 
 
+# کلمه‌های عمومی که خودشان آزمونی را مشخص نمی‌کنند («علوم پزشکی یاسوج» ≠ «علوم پزشکی اراک»)
+WEAK = set("""دانشگاه علوم پزشکی شرکت شرکت‌های شرکتهای سازمان بانک اداره کل استان وزارت وزارتخانه
+نیروی توزیع ایران دولتی دولت کارکنان کارمند کارشناس عنوان شغلی نفر""".split())
+
+
 def same_exam(a, b):
     ta, tb = name_tokens(a), name_tokens(b)
     if not ta or not tb:
         return False
-    common = ta & tb
-    return len(common) >= 2 and len(common) >= 0.6 * min(len(ta), len(tb))
-
+    sa, sb = ta - WEAK, tb - WEAK
+    if not sa and not sb:
+        return ta == tb
+    small, big = (sa, sb) if len(sa) <= len(sb) else (sb, sa)
+    # همه‌ی کلمه‌های مشخص‌کننده‌ی نام کوتاه‌تر باید در دیگری باشد
+    return bool(small) and small <= big
 
 def find_tracked(data, title):
     best, score = None, 0
