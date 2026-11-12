@@ -130,6 +130,8 @@ def track(data, item, det):
 # ---------- شناختن مرحله‌ی آزمون ----------
 def stage_of(text):
     text = text or ""
+    if "انتظار" in text:  # «در انتظار نتایج/دریافت کارت» یعنی هنوز منتشر نشده
+        return None
     if re.search(r"نتایج|نتیجه|پذیرفته ?‌?شدگان|معرفی ?‌?شدگان", text):
         return "results"
     if re.search(r"کارت(?:\s|$)", text):  # نه «کارتن»
