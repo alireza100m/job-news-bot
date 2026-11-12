@@ -26,7 +26,8 @@ APP_URL = "https://myket.ir/app/ir.azmoonyar.app"  # لینک دانلود اپ 
 
 def app_promo(html_links=True):
     """تبلیغ اپ: صدها تست دیگر از همین منابع."""
-    text = "📲 برای دسترسی به همه‌ی تست‌های منابع عمومی و تمرین کامل، اپ «آزمون یار» رو دانلود کن"
+    text = ("📲 برای دسترسی به همه‌ی تست‌های استخدامی و تمرین کامل، با ویژگی‌های متنوع، "
+            "اپلیکیشن «آزمون یار» رو دانلود کن")
     if APP_URL:
         if html_links:
             return f'{text}:\n👈 <a href="{APP_URL}">دانلود اپ آزمون یار</a>'
@@ -129,7 +130,7 @@ def post(tg_token, channel, send_mirrors, dry=False, force=False):
         return
     intro = requests.post(f"https://api.telegram.org/bot{tg_token}/sendMessage",
                           json={"chat_id": channel, "text": intro_text(q, channel),
-                                "parse_mode": "HTML", "disable_web_page_preview": True}, timeout=30)
+                                "parse_mode": "HTML"}, timeout=30)
     if not intro.ok:
         print(f"[!] quiz intro: {intro.text[:200]}")
     r = requests.post(f"https://api.telegram.org/bot{tg_token}/sendPoll", data=payload, timeout=30)
