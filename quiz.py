@@ -45,17 +45,35 @@ def pick(bank, used):
     return random.choice(fresh) if fresh else None
 
 
+NOTE = ("📖 این سؤال از «منابع عمومی» است که در همه‌ی آزمون‌های استخدامی می‌آید؛ "
+        "یادگرفتنش برای هر آزمونی که شرکت کنید به کارتان می‌آید.")
+
+
+def hashtags(q):
+    tags = ["#سؤال_روز", "#آزمون_استخدامی"]
+    if q.get("topic"):
+        tags.insert(1, "#" + q["topic"].replace("‌", "_").replace(" ", "_"))
+    return " ".join(tags)
+
+
+def intro_text(q, channel):
+    """پیام کوتاه قبل از کوییز تلگرام (کوییز هشتگ قابل‌کلیک ندارد)."""
+    topic = f" | {q['topic']}" if q.get("topic") else ""
+    return (f"🧠 <b>سؤال روز{topic}</b>\n\n{NOTE}\n\n👇 جواب خودتان را در کوییز زیر بزنید."
+            f"\n\n{hashtags(q)}")
+
+
 def plain_text(q, channel):
     """متن کوییز برای بله و ایتا (که کوییز تلگرام ندارند)."""
     topic = f" ({q['topic']})" if q.get("topic") else ""
     opts = "\n".join(f"{LETTERS[i]}) {o}" for i, o in enumerate(q["options"]))
     ans = f"{LETTERS[q['answer']]}) {q['options'][q['answer']]}"
-    text = (f"🧠 سؤال روز آزمون‌های استخدامی{topic}\n\n{q['q']}\n\n{opts}\n\n"
+    text = (f"🧠 سؤال روز آزمون‌های استخدامی{topic}\n\n{NOTE}\n\n❓ {q['q']}\n\n{opts}\n\n"
             f"👇 اول خودتان جواب بدهید، بعد پاسخ را ببینید 👇\n.\n.\n.\n.\n"
             f"✅ پاسخ درست: {ans}")
     if q.get("explain"):
         text += f"\n💡 {q['explain']}"
-    return text + f"\n\n📚 سؤال‌های بیشتر در اپ «آزمون یار»\n🆔 {channel}"
+    return text + f"\n\n{hashtags(q)}\n\n📚 سؤال‌های بیشتر در اپ «آزمون یار»\n🆔 {channel}"
 
 
 def post(tg_token, channel, send_mirrors, dry=False, force=False):
@@ -72,7 +90,7 @@ def post(tg_token, channel, send_mirrors, dry=False, force=False):
     topic = f" | {q['topic']}" if q.get("topic") else ""
     payload = {
         "chat_id": channel,
-        "question": f"🧠 سؤال روز{topic}\n{q['q']}"[:300],
+        "question": q["q"][:300],
         "options": json.dumps([{"text": o[:100]} for o in q["options"]], ensure_ascii=False),
         "type": "quiz",
         "correct_option_id": q["answer"],
@@ -83,6 +101,11 @@ def post(tg_token, channel, send_mirrors, dry=False, force=False):
     if dry:
         print(f"---- QUIZ (dry run) ----\n{payload['question']}\n{q['options']} → {q['answer']}")
         return
+    intro = requests.post(f"https://api.telegram.org/bot{tg_token}/sendMessage",
+                          json={"chat_id": channel, "text": intro_text(q, channel),
+                                "parse_mode": "HTML"}, timeout=30)
+    if not intro.ok:
+        print(f"[!] quiz intro: {intro.text[:200]}")
     r = requests.post(f"https://api.telegram.org/bot{tg_token}/sendPoll", data=payload, timeout=30)
     if not r.ok:
         print(f"[!] quiz: {r.text[:300]}")
