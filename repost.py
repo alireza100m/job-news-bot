@@ -2,6 +2,7 @@
 
 REPOST_REMINDERS: بخشی از عنوان آزمون‌ها، جدا با |   (یادآوری مهلت)
 REPOST_WEEKLY=1: جمع‌بندی هفتگی
+REPOST_QUIZ=1: یک سؤال کوییز همین الان
 """
 import os
 
@@ -18,6 +19,9 @@ for part in [w for w in os.environ.get("REPOST_REMINDERS", "").split("|") if w]:
         print(f"[!] not found or expired: {part}")
         continue
     bot.send_followup(tracked, key, "reminder", left)
+if os.environ.get("REPOST_QUIZ") == "1":
+    import quiz
+    quiz.post(bot.TELEGRAM_TOKEN, bot.CHANNEL, bot.send_mirrors, force=True)
 if os.environ.get("REPOST_WEEKLY") == "1":
     bot.post_weekly(tracked)
 followups.save(tracked)
