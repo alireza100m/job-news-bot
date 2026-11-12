@@ -114,26 +114,40 @@ def mirror(msg):
 
 
 def main():
-    r = requests.get(f"{TG}/getUpdates", params={
-        "timeout": 0, "allowed_updates": '["channel_post"]'}, timeout=60).json()
-    if not r.get("ok"):
-        print(f"getUpdates error: {r}")
-        sys.exit(1)
-    last = None
-    try:
+    # اجرای پیوسته: با long polling هر پست چند ثانیه بعد بازنشر می‌شود
+    deadline = time.time() + 60 * float(os.environ.get("MIRROR_MINUTES", "0"))
+    offset = None
+    while True:
+        params = {"timeout": 50 if deadline > time.time() else 0,
+                  "allowed_updates": '["channel_post"]'}
+        if offset is not None:
+            params["offset"] = offset  # تأیید دریافت پست‌های قبلی
+        try:
+            r = requests.get(f"{TG}/getUpdates", params=params, timeout=70).json()
+        except Exception as e:
+            print(f"getUpdates failed: {e}"[:300])
+            time.sleep(10)
+            continue
+        if not r.get("ok"):
+            print(f"getUpdates error: {r}")
+            sys.exit(1)
         for upd in r["result"]:
+            offset = upd["update_id"] + 1
             msg = upd.get("channel_post")
             if (msg and msg["chat"].get("username", "").lower() == CHANNEL
                     and msg.get("date", 0) >= SINCE):
-                print(f"mirroring post {msg['message_id']}")
-                mirror(msg)
+                print(f"mirroring post {msg['message_id']}", flush=True)
+                try:
+                    mirror(msg)
+                except Exception as e:
+                    print(f"mirror failed: {e}"[:300])
                 time.sleep(1)
-            last = upd["update_id"]
-    finally:
-        if last is not None:  # تأیید دریافت تا همین پست، تا دوباره فرستاده نشود
-            requests.get(f"{TG}/getUpdates", params={"offset": last + 1, "limit": 1,
-                                                     "timeout": 0}, timeout=30)
-    print(f"done, {len(r['result'])} update(s)")
+        if time.time() >= deadline:
+            break
+    if offset is not None:  # تأیید نهایی تا دوباره فرستاده نشود
+        requests.get(f"{TG}/getUpdates", params={"offset": offset, "limit": 1,
+                                                 "timeout": 0}, timeout=30)
+    print("done")
 
 
 if __name__ == "__main__":

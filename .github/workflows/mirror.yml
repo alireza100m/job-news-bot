@@ -2,7 +2,7 @@ name: بازنشر پست‌های دستی در بله و ایتا
 
 on:
   schedule:
-    - cron: "*/5 * * * *"   # هر ۵ دقیقه (گیت‌هاب گاهی چند دقیقه دیرتر اجرا می‌کند)
+    - cron: "*/30 * * * *"   # هر اجرا ~۵.۵ ساعت فعال می‌ماند؛ اجرای بعدی در صف منتظر می‌ماند
   workflow_dispatch:
 
 concurrency:
@@ -12,7 +12,7 @@ concurrency:
 jobs:
   mirror:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 350
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -27,5 +27,6 @@ jobs:
           BALE_CHANNEL: ${{ secrets.BALE_CHANNEL }}
           EITAA_TOKEN: ${{ secrets.EITAA_TOKEN }}
           EITAA_CHANNEL: ${{ secrets.EITAA_CHANNEL }}
+          MIRROR_MINUTES: "330"
           MIRROR_SINCE: "1794468300"   # پست‌های قبل از راه‌اندازی بازنشر نمی‌شوند
-        run: python mirror.py
+        run: python -u mirror.py
