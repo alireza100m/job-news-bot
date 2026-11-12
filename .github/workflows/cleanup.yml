@@ -1,0 +1,37 @@
+name: فهرست یا حذف پست‌ها (دستی)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "list یا delete"
+        default: "list"
+      after:
+        description: "list: فقط پست‌های بعد از این شناسه"
+        default: "0"
+      tg_ids:
+        description: "delete: شناسه‌های تلگرام، جدا با ,"
+        default: ""
+      bale_ids:
+        description: "delete: شناسه‌های بله، جدا با ,"
+        default: ""
+
+jobs:
+  clean:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests==2.32.3
+      - env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHANNEL: "@azmoonyar_estekhdam"
+          BALE_BOT_TOKEN: ${{ secrets.BALE_BOT_TOKEN }}
+          BALE_CHANNEL: ${{ secrets.BALE_CHANNEL }}
+          CLEAN_MODE: ${{ inputs.mode }}
+          CLEAN_AFTER: ${{ inputs.after }}
+          CLEAN_TG: ${{ inputs.tg_ids }}
+          CLEAN_BALE: ${{ inputs.bale_ids }}
+        run: python cleanup.py
