@@ -1,0 +1,31 @@
+name: بازنشر پست‌های دستی در بله و ایتا
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"   # هر ۵ دقیقه (گیت‌هاب گاهی چند دقیقه دیرتر اجرا می‌کند)
+  workflow_dispatch:
+
+concurrency:
+  group: mirror
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests==2.32.3
+      - name: Mirror manual posts
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHANNEL: "@azmoonyar_estekhdam"
+          BALE_BOT_TOKEN: ${{ secrets.BALE_BOT_TOKEN }}
+          BALE_CHANNEL: ${{ secrets.BALE_CHANNEL }}
+          EITAA_TOKEN: ${{ secrets.EITAA_TOKEN }}
+          EITAA_CHANNEL: ${{ secrets.EITAA_CHANNEL }}
+          MIRROR_SINCE: "1794468300"   # پست‌های قبل از راه‌اندازی بازنشر نمی‌شوند
+        run: python mirror.py
