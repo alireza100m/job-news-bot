@@ -26,6 +26,15 @@ def _full_date(md):
     return f"{y}/{mo:02d}/{d:02d}"
 
 
+def _dates(vals):
+    out = {}
+    for key, v in (("card", vals[1]), ("exam", vals[2])):
+        m = re.fullmatch(r"(\d{4})/(\d{1,2})/(\d{1,2})", v.translate(FA))
+        if m:
+            out[key] = f"{m.group(1)}/{int(m.group(2)):02d}/{int(m.group(3)):02d}"
+    return out
+
+
 def fetch_calendar(url):
     r = requests.get(url, headers=UA, timeout=30)
     r.raise_for_status()
@@ -39,7 +48,10 @@ def fetch_calendar(url):
         vals = [_t(v) for v in re.findall(r'class="v">(.*?)</div>', body, re.S)] + ["-"] * 4
         upcoming_status = "به زودی" in status or "به‌زودی" in status or "در انتظار ثبت" in status
         if status != "ثبت نام" and not upcoming_status:
-            continue  # فقط ثبت‌نام باز یا به‌زودی
+            # برای انتشار فقط ثبت‌نام باز یا به‌زودی؛ بقیه (کارت، نتایج...) فقط برای پیگیری
+            items.append({"id": "", "phase": "other", "raw_status": status, "title": name,
+                          "link": href, "pre": _dates(vals), "summary": "", "gov": True, "ts": 0})
+            continue
         reg = re.fullmatch(r"(\S+)\s*-\s*(\S+)", vals[0])
         one = re.fullmatch(r"از\s*(\S+)", vals[0])
         start = _full_date(reg.group(1)) if reg else (_full_date(one.group(1)) if one else None)
@@ -62,15 +74,12 @@ def fetch_calendar(url):
         else:
             pre = {"status": "در حال ثبت‌نام",
                    "deadline": f"{start} تا {end}" if start else f"تا {end}"}
-        for key, v in (("card", vals[1]), ("exam", vals[2])):
-            m = re.fullmatch(r"(\d{4})/(\d{1,2})/(\d{1,2})", v.translate(FA))
-            if m:
-                pre[key] = f"{m.group(1)}/{int(m.group(2)):02d}/{int(m.group(3)):02d}"
+        pre.update(_dates(vals))
         title = name if name.startswith(("استخدام", "آزمون", "فراخوان")) else f"استخدام {name}"
         items.append({
             # «به‌زودی» و «ثبت‌نام باز» دو پست جدا هستند
             "id": hashlib.sha1((href + name + ("|soon" if phase == "soon" else "")).encode("utf-8")).hexdigest()[:16],
-            "phase": phase,
+            "phase": phase, "raw_status": status,
             "title": title, "summary": "", "link": href, "gov": True, "ts": 0, "pre": pre,
         })
     return items
