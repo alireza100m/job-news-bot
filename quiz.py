@@ -129,7 +129,7 @@ def post(tg_token, channel, send_mirrors, dry=False, force=False):
         return
     intro = requests.post(f"https://api.telegram.org/bot{tg_token}/sendMessage",
                           json={"chat_id": channel, "text": intro_text(q, channel),
-                                "parse_mode": "HTML"}, timeout=30)
+                                "parse_mode": "HTML", "disable_web_page_preview": True}, timeout=30)
     if not intro.ok:
         print(f"[!] quiz intro: {intro.text[:200]}")
     r = requests.post(f"https://api.telegram.org/bot{tg_token}/sendPoll", data=payload, timeout=30)
