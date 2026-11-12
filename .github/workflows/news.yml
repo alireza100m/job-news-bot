@@ -27,6 +27,10 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
+      - name: Persian text shaping for post images
+        run: |
+          python -c "from PIL import features; print('raqm', features.check('raqm'))" | grep -q True || (sudo apt-get install -y -q libfribidi0 || (sudo apt-get update -q && sudo apt-get install -y -q libfribidi0)) || true
+          python -c "import image; print('post image ok', len(image.make_image('آزمون استخدامی آموزش و پرورش')), 'raqm', image.available())" || true
       - name: Run bot
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}

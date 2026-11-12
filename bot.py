@@ -19,6 +19,7 @@ from details import fetch_details, details_lines, is_expired
 from ee_calendar import fetch_calendar
 import followups
 import extras
+import image
 import requests
 
 BASE = Path(__file__).parent
@@ -252,19 +253,48 @@ def safe_html(post):
     return post.replace("&lt;b&gt;", "<b>").replace("&lt;/b&gt;", "</b>")
 
 
-def send(text):
+IMAGES = os.environ.get("IMAGES_DISABLED") != "1"
+CAPTION_LIMIT = 1024  # تلگرام: حداکثر طول متن زیر عکس
+
+
+def make_image(title, kind=None, subtitle=None):
+    """تصویر پست؛ اگر نشد None (پست بدون عکس می‌رود)."""
+    if not IMAGES:
+        return None
+    try:
+        if not image.available():
+            print("[!] image: raqm not available")
+            return None
+        return image.make_image(title, kind, subtitle, CHANNEL)
+    except Exception as e:
+        print(f"[!] image failed: {e}"[:300])
+        return None
+
+
+def send(text, photo=None):
+    if photo and len(plain_text(re.sub(r"<[^>]+>", "", text))) > CAPTION_LIMIT:
+        photo = None  # متن بلندتر از حد زیرنویس عکس است؛ بدون عکس
     if DRY_RUN:
-        print("---- DRY RUN ----\n" + text)
+        print(f"---- DRY RUN {'(with image ' + str(len(photo)) + ' bytes)' if photo else '(no image)'} ----\n" + text)
         return
-    r = requests.post(
-        f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
-        json={"chat_id": CHANNEL, "text": text, "parse_mode": "HTML",
-              "disable_web_page_preview": True},
-        timeout=30,
-    )
+    if photo:
+        r = requests.post(
+            f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendPhoto",
+            data={"chat_id": CHANNEL, "caption": text, "parse_mode": "HTML"},
+            files={"photo": ("post.png", photo, "image/png")}, timeout=60)
+        if not r.ok:
+            print(f"[!] sendPhoto failed, sending text: {r.text[:200]}")
+            photo = None
+    if not photo:
+        r = requests.post(
+            f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
+            json={"chat_id": CHANNEL, "text": text, "parse_mode": "HTML",
+                  "disable_web_page_preview": True},
+            timeout=30,
+        )
     if not r.ok:
         raise RuntimeError(f"Telegram error: {r.text}")
-    bale_id = send_mirrors(text)
+    bale_id = send_mirrors(text, photo)
     if bale_id:  # برای حذف خودکار در بله اگر پست در تلگرام حذف شد (mirror.py)
         record_bot_mirror(r.json()["result"]["message_id"], bale_id)
 
@@ -285,15 +315,23 @@ def plain_text(text):
     return html.unescape(re.sub(r"</?b>", "", text))
 
 
-def send_mirrors(text):
+def send_mirrors(text, photo=None):
     """ارسال همان خبر به بله و ایتا؛ خطای آن‌ها انتشار در تلگرام را متوقف نمی‌کند.
     شناسه‌ی پیام بله را برمی‌گرداند."""
     plain = plain_text(text)
     bale_id = None
     if BALE_TOKEN and BALE_CHANNEL:
         try:
-            r = requests.post(f"https://tapi.bale.ai/bot{BALE_TOKEN}/sendMessage",
-                              json={"chat_id": BALE_CHANNEL, "text": plain}, timeout=30)
+            r = None
+            if photo:
+                r = requests.post(f"https://tapi.bale.ai/bot{BALE_TOKEN}/sendPhoto",
+                                  data={"chat_id": BALE_CHANNEL, "caption": plain},
+                                  files={"photo": ("post.png", photo, "image/png")}, timeout=60)
+                if not r.ok:
+                    print(f"[bale] sendPhoto {r.status_code} {r.text[:200]}")
+            if not r or not r.ok:
+                r = requests.post(f"https://tapi.bale.ai/bot{BALE_TOKEN}/sendMessage",
+                                  json={"chat_id": BALE_CHANNEL, "text": plain}, timeout=30)
             print(f"[bale] {r.status_code} {r.text[:200]}" if not r.ok else "[bale] ok")
             if r.ok:
                 bale_id = r.json().get("result", {}).get("message_id")
@@ -301,8 +339,16 @@ def send_mirrors(text):
             print(f"[bale] failed: {e}"[:300])
     if EITAA_TOKEN and EITAA_CHANNEL:
         try:
-            r = requests.post(f"https://eitaayar.ir/api/{EITAA_TOKEN}/sendMessage",
-                              data={"chat_id": EITAA_CHANNEL, "text": plain}, timeout=30)
+            r = None
+            if photo:
+                r = requests.post(f"https://eitaayar.ir/api/{EITAA_TOKEN}/sendFile",
+                                  data={"chat_id": EITAA_CHANNEL, "caption": plain},
+                                  files={"file": ("post.png", photo, "image/png")}, timeout=60)
+                if not r.ok:
+                    print(f"[eitaa] sendFile {r.status_code} {r.text[:200]}")
+            if not r or not r.ok:
+                r = requests.post(f"https://eitaayar.ir/api/{EITAA_TOKEN}/sendMessage",
+                                  data={"chat_id": EITAA_CHANNEL, "text": plain}, timeout=30)
             print(f"[eitaa] {r.status_code} {r.text[:200]}" if not r.ok else "[eitaa] ok")
         except Exception as e:
             print(f"[eitaa] failed: {e}"[:300])
@@ -333,8 +379,16 @@ def send_followup(tracked, key, kind, left=None, reg_url=None):
         parts = followups.reminder_post(t, left)
     else:
         parts = followups.stage_post(t, kind)
+    if kind == "reminder" or kind is None:
+        sub = (f"مهلت ثبت‌نام: تا {followups.date_words(t.get('deadline'))}"
+               if followups.date_words(t.get("deadline")) else None)
+    elif kind == "card" and followups.date_words(t.get("exam")):
+        sub = f"تاریخ آزمون: {followups.date_words(t.get('exam'))}"
+    else:
+        sub = None
     send(followup_text(*parts[:3], reg_url or t.get("reg_url"), parts[3],
-                       extras.hashtags(t["title"], kind)))
+                       extras.hashtags(t["title"], kind)),
+         make_image(followups.subject(t["title"]), kind, sub))
     if kind == "reminder":
         t["reminded_for"] = t["deadline"]
     else:
@@ -490,7 +544,11 @@ def main():
             text += f'\n\n🔗 <a href="{html.escape(det["reg_url"])}">{label}</a>'
         text += "\n\n" + extras.hashtags(item["title"], "soon" if is_soon else None) + footer()
         try:
-            send(text)
+            end = followups.date_words(det.get("deadline"))
+            start = followups.date_words(det.get("start"))
+            sub = (f"شروع ثبت‌نام: {start}" if is_soon and start
+                   else f"مهلت ثبت‌نام: تا {end}" if end and not is_soon else None)
+            send(text, make_image(title_line, "soon" if is_soon else None, sub))
             posted += 1
             print(f"[✓] posted: {item['title']}")
             if followups.stage_of(item["title"]):
@@ -520,7 +578,9 @@ def main():
             if rows:
                 head, intro, lines = extras.weekly_post(rows)
                 send(safe_html(head + "\n\n" + intro) + "\n\n" + html.escape("\n".join(lines), quote=False)
-                     + "\n\n" + extras.hashtags("", "weekly") + footer())
+                     + "\n\n" + extras.hashtags("", "weekly") + footer(),
+                     make_image("ثبت‌نام‌های باز استخدامی این هفته", "weekly",
+                                f"{str(len(rows)).translate(followups.FA_DIGITS)} آزمون و استخدام دولتی"))
                 print(f"[✓] weekly summary: {len(rows)} items")
             seen["weekly"] = extras.iran_now().strftime("%Y-%m-%d")
     except Exception as e:
