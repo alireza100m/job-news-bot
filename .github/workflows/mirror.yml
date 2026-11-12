@@ -21,7 +21,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install requests==2.32.3
+      - run: pip install requests==2.32.3 cryptography
       - name: Mirror manual posts
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -30,6 +30,8 @@ jobs:
           BALE_CHANNEL: ${{ secrets.BALE_CHANNEL }}
           EITAA_TOKEN: ${{ secrets.EITAA_TOKEN }}
           EITAA_CHANNEL: ${{ secrets.EITAA_CHANNEL }}
+          TELEGRAM_BOT_USERNAME: "estekhdam_news_bot"
+          CHALLENGE_SUPPORT: ${{ vars.CHALLENGE_SUPPORT }}
           MIRROR_MINUTES: "330"
           MIRROR_SINCE: "1794468300"   # پست‌های قبل از راه‌اندازی بازنشر نمی‌شوند
         run: |
