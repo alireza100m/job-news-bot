@@ -4,6 +4,10 @@ on:
   schedule:
     - cron: "*/30 3-19 * * *"   # هر ۳۰ دقیقه، از ۶:۳۰ صبح تا ۱۱:۳۰ شب به وقت ایران
   workflow_dispatch:            # دکمه‌ی اجرای دستی
+    inputs:
+      dry_run:
+        description: "فقط پیش‌نمایش (چیزی ارسال و ذخیره نشود)"
+        default: "0"
 
 permissions:
   contents: write   # برای ذخیره‌ی فهرست خبرهای منتشرشده (seen.json)
@@ -33,10 +37,12 @@ jobs:
           EITAA_CHANNEL: ${{ secrets.EITAA_CHANNEL }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           AI_DISABLED: "1"   # سرویس هوش مصنوعی GitHub فعلاً پاسخ نمی‌دهد
+          DRY_RUN: ${{ inputs.dry_run || '0' }}
         run: python bot.py
       - name: Save seen list
+        if: ${{ inputs.dry_run != '1' }}
         run: |
           git config user.name "news-bot"
           git config user.email "news-bot@users.noreply.github.com"
-          git add seen.json mirror_map_bot.json 2>/dev/null || git add seen.json
+          git add seen.json tracked.json mirror_map_bot.json 2>/dev/null || git add seen.json tracked.json
           git diff --cached --quiet || (git commit -m "update seen" && git pull --rebase -q && git push)

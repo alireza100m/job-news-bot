@@ -17,6 +17,7 @@ import feedparser
 from formatter import format_post, normalize_fa, sentence, strip_heading, _short
 from details import fetch_details, details_lines, is_expired
 from ee_calendar import fetch_calendar
+import followups
 import requests
 
 BASE = Path(__file__).parent
@@ -33,6 +34,8 @@ EITAA_TOKEN = os.environ.get("EITAA_TOKEN", "")
 EITAA_CHANNEL = os.environ.get("EITAA_CHANNEL", "")
 MODEL = os.environ.get("AI_MODEL", "openai/gpt-4o-mini")
 MAX_POSTS_PER_RUN = int(os.environ.get("MAX_POSTS_PER_RUN", "5"))
+MAX_FOLLOWUPS_PER_RUN = int(os.environ.get("MAX_FOLLOWUPS_PER_RUN", "3"))  # یادآوری مهلت، کارت، نتایج
+CALENDAR = []  # همه‌ی ردیف‌های تقویم ای‌استخدام (برای پیگیری وضعیت آزمون‌ها)
 FIRST_RUN_POSTS = 3
 MAX_AGE_DAYS = 3  # خبرهای قدیمی‌تر از ۳ روز منتشر نشوند  # در اولین اجرا فقط چند خبر آخر منتشر شود
 DRY_RUN = os.environ.get("DRY_RUN") == "1"
@@ -106,6 +109,9 @@ def fetch_items(sources):
             except Exception as e:
                 print(f"[!] {src['name']}: {e}")
                 continue
+            CALENDAR.extend(cal)
+            print("[i] calendar statuses:", sorted({c.get("raw_status", "") for c in cal}))
+            cal = [c for c in cal if c["phase"] in ("open", "soon")]
             for it in cal:
                 it["source"] = src["name"]
             items.extend(cal)
@@ -302,12 +308,72 @@ def send_mirrors(text):
     return bale_id
 
 
+def footer():
+    return (f"\n\n📚 برای آمادگی آزمون‌های استخدامی: <b>آزمون یار</b>"
+            + f"\n🆔 {CHANNEL}")
+
+
+def followup_text(head, intro, info, reg_url, label):
+    """پست پیگیری (یادآوری/کارت/نتایج) با همان قالب پست‌های اصلی."""
+    body = normalize_fa(head) + "\n\n📝 " + normalize_fa(intro)
+    if info:
+        body += "\n\n" + "\n".join(normalize_fa(l) for l in info)
+    text = safe_html(body)
+    if reg_url:
+        text += f'\n\n🔗 <a href="{html.escape(reg_url)}">{label}</a>'
+    return text + footer()
+
+
+def send_followup(tracked, key, kind, left=None, reg_url=None):
+    t = tracked[key]
+    if kind == "reminder":
+        parts = followups.reminder_post(t, left)
+    else:
+        parts = followups.stage_post(t, kind)
+    send(followup_text(*parts[:3], reg_url or t.get("reg_url"), parts[3]))
+    if kind == "reminder":
+        t["reminded_for"] = t["deadline"]
+    else:
+        followups.mark_done(tracked, key, kind)
+    print(f"[✓] follow-up ({kind}): {t['title']}")
+    time.sleep(3)
+
+
+def run_followups(tracked, budget):
+    """یادآوری مهلت و خبر کارت/نتایج آزمون‌هایی که قبلاً منتشر شده‌اند."""
+    followups.refresh_pages(tracked)
+    done = 0
+    for key, kind, left in followups.pending(tracked):
+        if done >= budget:
+            break
+        t = tracked[key]
+        if kind == "reminder" and "e-estekhdam" not in t.get("link", ""):
+            # درست قبل از یادآوری، مهلت را دوباره بخوان (شاید تمدید یا بسته شده باشد)
+            det = fetch_details(t["link"])
+            for f in ("deadline", "status", "reg_url"):
+                if det.get(f):
+                    t[f] = det[f]
+            t["checked"] = time.time()
+            if not any(k == key and kd == "reminder" for k, kd, _ in followups.pending({key: t})):
+                continue
+            left = followups.days_left(t["deadline"])
+        if not t.get("reg_url") and t.get("link"):
+            t["reg_url"] = fetch_details(t["link"]).get("reg_url")  # لینک رسمی سامانه
+        try:
+            send_followup(tracked, key, kind, left)
+            done += 1
+        except Exception as e:
+            print(f"[!] follow-up failed: {e}"[:300])
+    return done
+
+
 def main():
     sources = load_json(SOURCES_FILE, [])
     seen = load_json(SEEN_FILE, {"ids": [], "titles": []})
     if os.environ.get("IGNORE_SEEN") == "1":  # فقط برای پیش‌نمایش
         seen = {"ids": ["x"], "titles": []}
     first_run = not seen["ids"]
+    tracked = followups.load()
 
     def is_dup(t, pool):
         # یک خبر از چند سایت با عنوان کمی متفاوت هم تکراری حساب شود
@@ -334,6 +400,9 @@ def main():
         batch_titles.append(t)
         new.append(i)
     print(f"new items: {len(new)}")
+    followups.seed_from_calendar(tracked, CALENDAR, set(seen["ids"]))
+    followups.update_from_calendar(tracked, CALENDAR)
+    fu_posted = 0
 
     if first_run:
         # همه را دیده‌شده علامت بزن و فقط چند خبر آخر را منتشر کن
@@ -346,6 +415,23 @@ def main():
     for item in new:
         if posted >= MAX_POSTS_PER_RUN:
             break  # بقیه برای اجرای بعدی می‌مانند
+        # خبر کارت/نتایج آزمونی که قبلاً منتشر کرده‌ایم ← پست پیگیری همان آزمون
+        key, stage = followups.news_followup(tracked, item)
+        if key:
+            if tracked[key].get(stage + "_done") or fu_posted >= MAX_FOLLOWUPS_PER_RUN:
+                if tracked[key].get(stage + "_done"):
+                    seen["ids"].append(item["id"])
+                    seen["titles"].append(norm_title(item["title"]))
+                continue
+            det = fetch_details(item["link"]) if item["link"] else {}
+            try:
+                send_followup(tracked, key, stage, reg_url=det.get("reg_url"))
+                fu_posted += 1
+                seen["ids"].append(item["id"])
+                seen["titles"].append(norm_title(item["title"]))
+            except Exception as e:
+                print(f"[!] follow-up failed: {e}"[:300])
+            continue
         if not is_relevant(item):
             seen["ids"].append(item["id"])
             seen["titles"].append(item.get("norm") or norm_title(item["title"]))
@@ -398,13 +484,18 @@ def main():
         if det.get("reg_url"):
             label = "سایت رسمی ثبت‌نام (بعد از شروع ثبت‌نام)" if det.get("phase") == "soon" else "ورود به سایت رسمی ثبت‌نام"
             text += f'\n\n🔗 <a href="{html.escape(det["reg_url"])}">{label}</a>'
-        text = (text
-                + f"\n\n📚 برای آمادگی آزمون‌های استخدامی: <b>آزمون یار</b>"
-                + f"\n🆔 {CHANNEL}")
+        text = text + footer()
         try:
             send(text)
             posted += 1
             print(f"[✓] posted: {item['title']}")
+            if followups.stage_of(item["title"]):
+                # خودش خبر کارت/نتایج است؛ آزمون مربوطه (اگر بود) این مرحله را دارد
+                k = followups.find_tracked(tracked, item["title"])
+                if k:
+                    followups.mark_done(tracked, k, followups.stage_of(item["title"]))
+            else:
+                followups.track(tracked, item, det)
             time.sleep(3)
         except Exception as e:
             print(f"[!] {e}")
@@ -413,6 +504,13 @@ def main():
             seen["titles"].remove(item.get("norm") or norm_title(item["title"]))
             if "404" in str(e) or "401" in str(e):
                 break  # توکن اشتباه است؛ بقیه را هم امتحان نکن
+
+    try:
+        fu_posted += run_followups(tracked, MAX_FOLLOWUPS_PER_RUN - fu_posted)
+    except Exception as e:  # پیگیری نباید انتشار اخبار را خراب کند
+        print(f"[!] follow-ups: {e}"[:300])
+    followups.save(tracked)
+    print(f"follow-ups posted: {fu_posted}")
 
     # فقط ۲۰۰۰ مورد آخر نگه داشته شود
     seen["ids"] = seen["ids"][-2000:]
