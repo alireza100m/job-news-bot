@@ -20,7 +20,7 @@ STATE = BASE / "quiz_state.json"
 QUIZ_HOURS = [12, 20]   # دو سؤال در روز: ظهر و شب (وقت ایران)
 LETTERS = ["الف", "ب", "ج", "د", "ه"]
 BOT_USERNAME = os.environ.get("TELEGRAM_BOT_USERNAME", "estekhdam_news_bot")
-APP_URL = ""  # لینک دانلود اپ آزمون یار (خالی = بدون لینک)
+APP_URL = "https://myket.ir/app/ir.azmoonyar.app"  # لینک دانلود اپ آزمون یار (خالی = بدون لینک)
 
 
 def app_promo(html_links=True):
