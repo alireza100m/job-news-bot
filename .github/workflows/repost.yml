@@ -1,0 +1,36 @@
+name: انتشار دوباره‌ی پست‌های پیگیری
+
+on:
+  workflow_dispatch:
+    inputs:
+      reminders:
+        description: "بخشی از عنوان آزمون‌ها برای یادآوری مهلت، جدا با |"
+        default: ""
+      weekly:
+        description: "جمع‌بندی هفتگی هم منتشر شود؟ (1 = بله)"
+        default: "0"
+
+concurrency:
+  group: news
+  cancel-in-progress: false
+
+jobs:
+  repost:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Repost
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHANNEL: "@azmoonyar_estekhdam"
+          BALE_BOT_TOKEN: ${{ secrets.BALE_BOT_TOKEN }}
+          BALE_CHANNEL: ${{ secrets.BALE_CHANNEL }}
+          EITAA_TOKEN: ${{ secrets.EITAA_TOKEN }}
+          EITAA_CHANNEL: ${{ secrets.EITAA_CHANNEL }}
+          REPOST_REMINDERS: ${{ inputs.reminders }}
+          REPOST_WEEKLY: ${{ inputs.weekly }}
+        run: python repost.py

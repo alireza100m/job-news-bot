@@ -425,6 +425,18 @@ def run_followups(tracked, budget):
     return done
 
 
+def post_weekly(tracked):
+    rows = extras.open_registrations(tracked, CALENDAR)
+    if not rows:
+        return
+    head, intro, lines = extras.weekly_post(rows)
+    send(safe_html(head + "\n\n" + intro) + "\n\n" + html.escape("\n".join(lines), quote=False)
+         + "\n\n" + extras.hashtags("", "weekly") + footer(),
+         make_image("ثبت‌نام‌های باز استخدامی این هفته", "weekly",
+                    f"{str(len(rows)).translate(followups.FA_DIGITS)} آزمون و استخدام دولتی"))
+    print(f"[✓] weekly summary: {len(rows)} items")
+
+
 def main():
     sources = load_json(SOURCES_FILE, [])
     seen = load_json(SEEN_FILE, {"ids": [], "titles": []})
@@ -574,14 +586,7 @@ def main():
     # پنجشنبه‌ها: جمع‌بندی همه‌ی ثبت‌نام‌های باز
     try:
         if extras.weekly_due(seen.get("weekly")):
-            rows = extras.open_registrations(tracked, CALENDAR)
-            if rows:
-                head, intro, lines = extras.weekly_post(rows)
-                send(safe_html(head + "\n\n" + intro) + "\n\n" + html.escape("\n".join(lines), quote=False)
-                     + "\n\n" + extras.hashtags("", "weekly") + footer(),
-                     make_image("ثبت‌نام‌های باز استخدامی این هفته", "weekly",
-                                f"{str(len(rows)).translate(followups.FA_DIGITS)} آزمون و استخدام دولتی"))
-                print(f"[✓] weekly summary: {len(rows)} items")
+            post_weekly(tracked)
             seen["weekly"] = extras.iran_now().strftime("%Y-%m-%d")
     except Exception as e:
         print(f"[!] weekly: {e}"[:300])
