@@ -32,6 +32,7 @@ jobs:
           EITAA_CHANNEL: ${{ secrets.EITAA_CHANNEL }}
           TELEGRAM_BOT_USERNAME: "estekhdam_news_bot"
           CHALLENGE_SUPPORT: ${{ vars.CHALLENGE_SUPPORT }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}   # مغز دستیار (اختیاری)
           MIRROR_MINUTES: "330"
           MIRROR_SINCE: "1794468300"   # پست‌های قبل از راه‌اندازی بازنشر نمی‌شوند
         run: |
