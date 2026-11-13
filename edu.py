@@ -26,8 +26,9 @@ LETTERS = quiz.LETTERS
 
 HEAD = {"tip": "💡 <b>نکته‌ی روز</b>", "mistake": "🤯 <b>اینو اکثراً غلط می‌زنن!</b>",
         "skill": "🎯 <b>مهارت تست‌زنی</b>", "exam": "📝 <b>سؤال تستی با پاسخ تشریحی</b>"}
-TAG = {"tip": "نکته_روز", "mistake": "اشتباه_رایج", "skill": "مهارت_تست_زنی",
-       "exam": "سؤال_تشریحی"}
+# فقط یک هشتگ برای هر نوع تا پست شلوغ نشود و همه‌ی پست‌های یک نوع با یک لمس پیدا شوند
+TAG = {"tip": "نکته_روز", "mistake": "اینو_اکثرا_غلط_میزنن", "skill": "مهارت_تست_زنی",
+       "exam": "سوال_تشریحی"}
 IMG_TITLE = {"mistake": "این سؤال رو بیشتر شرکت‌کننده‌ها غلط جواب می‌دن",
              "exam": "سؤال به سبک آزمون‌های استخدامی با پاسخ تشریحی"}
 
@@ -40,10 +41,7 @@ def _load(path, default):
 
 
 def hashtags(kind, item):
-    tags = ["#" + TAG[kind]]
-    if item.get("topic"):
-        tags.append("#" + item["topic"].split(" (")[0].replace("‌", "_").replace(" ", "_"))
-    return " ".join(tags + ["#آزمون_استخدامی"])
+    return "#" + TAG[kind]
 
 
 def shuffled(item):
