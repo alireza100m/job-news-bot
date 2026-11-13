@@ -57,8 +57,29 @@ TOPIC_NAMES = dict(TOPICS)
 BTN_OPEN = "📋 آزمون‌های باز من"
 BTN_TOPICS = "⚙️ تغییر علاقه‌ها"
 BTN_APP = "📲 اپ آزمون یار"
-MAIN_KB = {"keyboard": [[{"text": BTN_OPEN}], [{"text": BTN_TOPICS}, {"text": BTN_APP}]],
-           "resize_keyboard": True}
+BTN_TEST = "🧠 تست رایگان"
+BTN_INVITE = "👥 دعوت دوستان (جایزه)"
+BOT_USERNAME = os.environ.get("TELEGRAM_BOT_USERNAME", "estekhdam_news_bot")
+# ادمین‌ها: شناسه‌ی عددی تلگرام (با /myid در ربات)، جدا با کاما؛ برای بله: bale:123
+ADMINS = {a if ":" in a else f"tg:{a}"
+          for a in re.split(r"[,\s]+", os.environ.get("ASSISTANT_ADMINS", "")) if a}
+REF_GOAL = 3              # تعداد دعوت برای جایزه
+REF_PRIZE = os.environ.get("REFERRAL_PRIZE", "کد تخفیف بسته‌های تست اپ «آزمون یار»")
+REF_REWARD = os.environ.get("REFERRAL_REWARD", "")   # متن جایزه (مثلاً کد تخفیف) — فقط در Secrets
+TESTS_PER_DAY = 5         # تست رایگان روزانه برای هر کاربر (با دکمه)
+DAILY_TEST_HOUR = 17      # ساعت ارسال خودکار «تست روز» (وقت ایران)
+LETTERS = ["الف", "ب", "ج", "د"]
+
+
+def main_kb(p=None):
+    rows = [[{"text": BTN_OPEN}], [{"text": BTN_TEST}]]
+    if not p or p.name == "tg":
+        rows[1].append({"text": BTN_INVITE})
+    rows.append([{"text": BTN_TOPICS}, {"text": BTN_APP}])
+    return {"keyboard": rows, "resize_keyboard": True}
+
+
+MAIN_KB = main_kb()  # پیش‌فرض
 
 _lock = threading.RLock()
 
@@ -179,7 +200,8 @@ def _welcome(name):
             "من اینجام که:\n"
             "• ثبت‌نام‌های باز استخدامی رشته‌ی خودت رو بهت بگم\n"
             "• قبل از تموم شدن مهلت ثبت‌نام بهت یادآوری کنم\n"
-            "• به سؤال‌هات درباره‌ی آزمون‌ها جواب بدم\n\n" + TOPICS_Q)
+            "• به سؤال‌هات درباره‌ی آزمون‌ها جواب بدم\n"
+            "• اگه بخوای، هر روز تست رایگان برات بفرستم 🧠\n\n" + TOPICS_Q)
 
 
 def plain(text):
@@ -209,7 +231,7 @@ def _send_open(p, chat_id, user):
                "به محض شروع ثبت‌نام آزمون تازه، خودم بهت خبر میدم 🔔")
     else:
         txt = "📋 <b>ثبت‌نام‌های باز برای تو</b>\n\n" + "\n\n".join(exam_line(*r) for r in rows[:12])
-    _send(p, chat_id, txt + "\n\n" + app_line(), MAIN_KB)
+    _send(p, chat_id, txt + "\n\n" + app_line(), main_kb(p))
 
 
 def handle_update(pname, upd, st):
@@ -244,11 +266,30 @@ def _on_message(p, msg, st):
     chat_id = msg["chat"]["id"]
     text = (msg.get("text") or "").strip()
     key, u, new = _user(st, p.name, msg["from"])
+    u["uname"] = (msg["from"].get("username") or "")[:40]
     if text.startswith("/start"):
         arg = text[6:].strip()
         if arg and not u.get("src"):
             u["src"] = re.sub(r"[^\w-]", "", arg)[:30]  # منبع ورود (برای آمار)
+        if new and arg.startswith("r_"):
+            _referral(p, st, key, u, arg[2:])
         _send(p, chat_id, _welcome(u["name"]), _topics_kb(u))
+        return True
+    if text == "/myid":
+        _send(p, chat_id, f"شناسه‌ی شما: <code>{key}</code>", main_kb(p))
+        return True
+    if key in ADMINS and _admin_message(p, st, key, chat_id, text):
+        return True
+    if text in (BTN_TEST, "/test"):
+        _send_test(p, chat_id, u)
+        return True
+    if text in (BTN_INVITE, "/invite"):
+        _send_invite(p, chat_id, key, u)
+        return True
+    if text == "/daily":
+        u["daily_on"] = not u.get("daily_on")
+        _send(p, chat_id, "🔔 تست روزانه روشن شد؛ هر روز عصر یه تست برات میاد."
+              if u["daily_on"] else "🔕 تست روزانه خاموش شد. با /daily دوباره روشنش کن.", main_kb(p))
         return True
     if text in (BTN_TOPICS, "/topics"):
         _send(p, chat_id, TOPICS_Q, _topics_kb(u))
@@ -262,10 +303,10 @@ def _on_message(p, msg, st):
     if text in (BTN_APP, "/app"):
         _send(p, chat_id, "📲 اپ «آزمون یار»: هزاران تست استخدامی با پاسخ تشریحی، "
                           f"دسته‌بندی‌شده بر اساس آزمون.\n\n<a href=\"{APP_URL}\">دانلود از مایکت</a>",
-              MAIN_KB)
+              main_kb(p))
         return True
     if not text:
-        _send(p, chat_id, "فعلاً فقط پیام متنی رو می‌فهمم 🙂 سؤالت رو بنویس.", MAIN_KB)
+        _send(p, chat_id, "فعلاً فقط پیام متنی رو می‌فهمم 🙂 سؤالت رو بنویس.", main_kb(p))
         return True
     _answer(p, chat_id, u, text)
     return True
@@ -273,6 +314,23 @@ def _on_message(p, msg, st):
 
 def _on_callback(p, cq, st):
     data = cq.get("data", "")
+    if data in ("d|yes", "d|no"):
+        key, u, _ = _user(st, p.name, cq["from"])
+        u["daily_on"] = data == "d|yes"
+        p.api("answerCallbackQuery", callback_query_id=cq["id"])
+        m = cq.get("message", {})
+        p.api("editMessageText", chat_id=m.get("chat", {}).get("id"), message_id=m.get("message_id"),
+              **_payload(p, "🔔 عالیه! هر روز عصر یه تست رایگان برات می‌فرستم. (خاموش کردن: /daily)"
+                         if u["daily_on"] else
+                         "باشه 🌸 تست روزانه نمی‌فرستم. هر وقت خواستی دکمه‌ی «🧠 تست رایگان» رو بزن "
+                         "یا با /daily روشنش کن."))
+        return True
+    if data.startswith(("q|", "qn")):
+        key, u, _ = _user(st, p.name, cq["from"])
+        return _on_test_answer(p, cq, u, data)
+    if data.startswith("b|"):
+        key = f"{p.name}:{cq['from']['id']}"
+        return key in ADMINS and _on_broadcast_cb(p, cq, st, key, data)
     if not data.startswith("t|"):
         return False
     key, u, _ = _user(st, p.name, cq["from"])
@@ -290,6 +348,9 @@ def _on_callback(p, cq, st):
                "از این به بعد آزمون‌های تازه و یادآوری مهلت‌ها رو همین‌جا برات می‌فرستم 🔔\n"
                "هر سؤالی هم درباره‌ی آزمون‌ها داشتی، همین‌جا بپرس."))
         _send_open(p, chat_id, u)
+        if not u.get("daily_asked"):
+            u["daily_asked"] = True
+            _ask_daily(p, chat_id)
         return True
     if tag != "all" and tag not in TOPIC_NAMES:
         return False
@@ -353,6 +414,40 @@ def _esc(s):
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+# جواب‌های آماده برای سؤال‌های رایج (وقتی هوش مصنوعی در دسترس نیست)
+FAQ = [
+    (r"درس|بخون|مطالعه|قبول|آماده|برنامه|موفق|رتبه|نمره", (
+        "📚 <b>چند توصیه برای قبولی در آزمون استخدامی:</b>\n\n"
+        "۱. اول دفترچه‌ی آزمون رو بخون و ببین چه درس‌هایی و با چه ضریبی میاد.\n"
+        "۲. «عمومی‌ها» (ادبیات، معارف، ریاضی و آمار، هوش، اطلاعات عمومی و ICDL) رو جدی بگیر؛ برای همه مشترکه و نمره‌ساز.\n"
+        "۳. هر روز تست بزن و زمان بگیر؛ تست‌زنی از خوندن خالی مهم‌تره.\n"
+        "۴. اشتباه‌هات رو یادداشت کن و دوباره مرور کن.\n"
+        "۵. هفته‌ی آخر فقط مرور و آزمون آزمایشی.\n\n"
+        "🎯 برای تمرین تست‌های واقعی دسته‌بندی‌شده با پاسخ تشریحی، اپ «آزمون یار» رو نصب کن:\n"
+        '<a href="{app}">دانلود از مایکت</a>')),
+    (r"منبع|منابع|کتاب|جزوه", (
+        "📖 منابع هر آزمون در <b>دفترچه‌ی رسمی</b> همون آزمون اعلام میشه.\n"
+        "معمولاً شامل «عمومی‌ها» (ادبیات، معارف، ریاضی و آمار، هوش، اطلاعات عمومی، ICDL) و «تخصصی‌های رشته»ست.\n\n"
+        "📲 تست‌های هر دو بخش رو می‌تونی توی اپ «آزمون یار» تمرین کنی: "
+        '<a href="{app}">دانلود از مایکت</a>')),
+    (r"شرایط|سن|مدرک|سهمیه|بومی|ایثارگر", (
+        "📝 شرایط سنی، مدرک، سهمیه و بومی بودن برای هر آزمون فرق داره و در <b>آگهی رسمی</b> همون آزمون اومده.\n"
+        "اسم آزمون رو بنویس یا «📋 آزمون‌های باز من» رو بزن تا لینک ثبت‌نام رسمیش رو ببینی.")),
+    (r"اپ|برنامه|نرم ?افزار|خرید|قیمت|بسته|تخفیف", (
+        "📲 اپ «آزمون یار»: تست‌های استخدامی دسته‌بندی‌شده با پاسخ تشریحی.\n"
+        '<a href="{app}">دانلود از مایکت</a>')),
+    (r"^(سلام|درود|خوبی|ممنون|مرسی|تشکر)", (
+        "سلام 🌸 در خدمتم! اسم آزمونی که دنبالشی رو بنویس، یا «📋 آزمون‌های باز من» رو بزن.")),
+]
+
+
+def _faq(text):
+    for pattern, reply in FAQ:
+        if re.search(pattern, text):
+            return reply.format(app=APP_URL)
+    return None
+
+
 def _answer(p, chat_id, u, text):
     day = iran_now().strftime("%Y-%m-%d")
     ai = u.setdefault("ai", {})
@@ -365,18 +460,299 @@ def _answer(p, chat_id, u, text):
             reply = ask_gemini(u, text)
             ai["n"] += 1
             if reply:
-                _send(p, chat_id, _esc(reply), MAIN_KB)
+                _send(p, chat_id, _esc(reply), main_kb(p))
                 return
         except Exception as e:
             print(f"[assistant] gemini failed: {e}"[:300])
-    hits = _search(text)
+    faq = _faq(text)
+    greeting = re.match(r"(سلام|درود|خوبی|ممنون|مرسی|تشکر)", text)
+    hits = [] if greeting else _search(text)
+    if faq and not hits:
+        _send(p, chat_id, faq, main_kb(p))
+        return
     if hits:
         _send(p, chat_id, "این‌ها رو پیدا کردم:\n\n" + "\n\n".join(exam_line(*r) for r in hits[:6])
-              + "\n\n" + app_line(), MAIN_KB)
+              + "\n\n" + app_line(), main_kb(p))
     else:
         _send(p, chat_id, "سؤالت رو گرفتم 🙏 فعلاً جواب دقیقی براش ندارم.\n"
                           f"آخرین اخبار استخدامی رو توی کانال {CHANNEL} ببین، "
-                          f"یا «{BTN_OPEN}» رو بزن.", MAIN_KB)
+                          f"یا «{BTN_OPEN}» رو بزن.", main_kb(p))
+
+
+# ---------- تست رایگان ----------
+_BANK = None
+
+
+def _bank():
+    global _BANK
+    if _BANK is None:
+        try:
+            _BANK = json.loads((BASE / "quiz.json").read_text(encoding="utf-8"))
+        except Exception:
+            _BANK = []
+    return _BANK
+
+
+def _pick_question(u):
+    bank = _bank()
+    if not bank:
+        return None
+    used = u.setdefault("q_used", [])
+    left = [q for q in bank if q["id"] not in used]
+    if not left:  # همه را دیده؛ از اول
+        used.clear()
+        left = bank
+    q = left[int(time.time() * 1000) % len(left)]
+    used.append(q["id"])
+    return q
+
+
+def _question_msg(p, chat_id, q, head):
+    opts = "\n".join(f"{LETTERS[i]}) {o}" for i, o in enumerate(q["options"]))
+    kb = {"inline_keyboard": [[{"text": f"{LETTERS[i]}) {o}"[:60], "callback_data": f"q|{q['id']}|{i}"}]
+                              for i, o in enumerate(q["options"])]}
+    return _send(p, chat_id, f"{head} | {q.get('topic', '')}</b>\n\n❓ {q['q']}\n\n{opts}\n\n"
+                             "👇 گزینه‌ی درست رو انتخاب کن:", kb)
+
+
+def _ask_daily(p, chat_id):
+    _send(p, chat_id, "🧠 دوست داری هر روز عصر یه <b>تست رایگان</b> از عمومی‌های آزمون استخدامی "
+                      "(معارف، اطلاعات عمومی، قانون اساسی) برات بفرستم؟",
+          {"inline_keyboard": [[{"text": "✅ آره، بفرست", "callback_data": "d|yes"},
+                                {"text": "❌ نه، ممنون", "callback_data": "d|no"}]]})
+
+
+def _send_test(p, chat_id, u):
+    day = iran_now().strftime("%Y-%m-%d")
+    qd = u.setdefault("q_day", {})
+    if qd.get("day") != day:
+        qd.clear()
+        qd["day"], qd["n"] = day, 0
+    if qd["n"] >= TESTS_PER_DAY:
+        _send(p, chat_id, f"🎯 امروز {_fa(TESTS_PER_DAY)} تست رایگانت رو زدی، آفرین!\n"
+                          "فردا دوباره تست تازه داری.\n\n"
+                          "برای تمرین نامحدود با هزاران تست و پاسخ تشریحی، اپ «آزمون یار» رو نصب کن:\n"
+                          f'<a href="{APP_URL}">دانلود از مایکت</a>', main_kb(p))
+        return
+    q = _pick_question(u)
+    if not q:
+        _send(p, chat_id, "فعلاً تستی در دسترس نیست.", main_kb(p))
+        return
+    qd["n"] += 1
+    _question_msg(p, chat_id, q, f"🧠 <b>تست رایگان {_fa(qd['n'])} از {_fa(TESTS_PER_DAY)}")
+
+
+def _on_test_answer(p, cq, u, data):
+    m = cq.get("message", {})
+    chat_id, mid = m.get("chat", {}).get("id"), m.get("message_id")
+    if data == "qn":
+        p.api("answerCallbackQuery", callback_query_id=cq["id"])
+        _send_test(p, chat_id, u)
+        return True
+    _, qid, idx = data.split("|")
+    q = next((x for x in _bank() if x["id"] == qid), None)
+    if not q:
+        p.api("answerCallbackQuery", callback_query_id=cq["id"], text="این سؤال دیگه در دسترس نیست")
+        return False
+    right = int(idx) == q["answer"]
+    st_ = u.setdefault("q_stats", {"ok": 0, "all": 0})
+    st_["all"] += 1
+    st_["ok"] += int(right)
+    p.api("answerCallbackQuery", callback_query_id=cq["id"], text="درست بود 🎉" if right else "نادرست ❌")
+    ans = f"{LETTERS[q['answer']]}) {q['options'][q['answer']]}"
+    head = "🎉 <b>آفرین! درست جواب دادی.</b>" if right else f"❌ <b>جوابت درست نبود.</b>\nپاسخ درست: {ans}"
+    expl = f"\n💡 {q['explain']}" if q.get("explain") else ""
+    score = f"\n\n📊 تا حالا {_fa(st_['ok'])} از {_fa(st_['all'])} تست رو درست زدی."
+    kb = {"inline_keyboard": [[{"text": "➡️ تست بعدی", "callback_data": "qn"}],
+                              [{"text": "📲 هزاران تست دیگه در اپ آزمون یار", "url": APP_URL}]]}
+    p.api("editMessageText", chat_id=chat_id, message_id=mid,
+          **_payload(p, f"❓ {q['q']}\n\n{head}{expl}{score}", reply_markup=kb))
+    return True
+
+
+def _daily_tests(st):
+    """هر روز از ساعت ۱۷ یک «تست روز» برای هر کاربر (اگر خاموشش نکرده باشد)."""
+    if not (DAILY_TEST_HOUR <= iran_now().hour < REMIND_HOURS[1]) or not _bank():
+        return False
+    day, sends, changed = iran_now().strftime("%Y-%m-%d"), 0, False
+    for key, u in st["users"].items():
+        if sends >= 150:
+            break
+        if u.get("blocked") or not u.get("daily_on") or u.get("last_daily") == day:
+            continue
+        if u.get("joined", 0) > time.time() - 3600:
+            continue
+        pname, uid = key.split(":", 1)
+        p = PLATFORMS.get(pname)
+        if not p:
+            continue
+        u["last_daily"] = day
+        q = _pick_question(u)
+        res = _question_msg(p, int(uid), q, "☀️ <b>تست روز")
+        if not res.get("ok") and "block" in str(res.get("description", "")).lower():
+            u["blocked"] = True
+        sends += 1
+        changed = True
+        time.sleep(0.05)
+    return changed
+
+
+# ---------- دعوت دوستان ----------
+def _send_invite(p, chat_id, key, u):
+    if p.name != "tg":
+        _send(p, chat_id, "دعوت دوستان فعلاً فقط در ربات تلگرام فعاله.", main_kb(p))
+        return
+    link = f"https://t.me/{BOT_USERNAME}?start=r_{key.split(':', 1)[1]}"
+    n = u.get("refs", 0)
+    status = ("✅ جایزه‌ات رو گرفتی، ممنون که دوستات رو آوردی! 🌸" if u.get("rewarded")
+              else f"📊 تا حالا {_fa(n)} نفر از {_fa(REF_GOAL)} نفر.")
+    _send(p, chat_id, f"👥 <b>دوستات رو دعوت کن، جایزه بگیر!</b>\n\n"
+                      f"🎁 اگه {_fa(REF_GOAL)} نفر با لینک تو ربات رو استارت کنن، جایزه‌ات: <b>{REF_PRIZE}</b>\n\n"
+                      f"{status}\n\n👇 لینک دعوت تو (برای دوستات بفرست):\n{link}", main_kb(p))
+    share = ("من از این ربات مهلت ثبت‌نام آزمون‌های استخدامی رو می‌گیرم و تست رایگان می‌زنم. "
+             f"تو هم استارتش کن 👇\n{link}")
+    _send(p, chat_id, share)
+
+
+def _referral(p, st, key, u, ref_id):
+    ref_key = f"{p.name}:{re.sub(r'[^0-9]', '', ref_id)}"
+    r = st["users"].get(ref_key)
+    if not r or ref_key == key:
+        return
+    u["ref_by"] = ref_key
+    r["refs"] = r.get("refs", 0) + 1
+    rid = int(ref_key.split(":", 1)[1])
+    if r["refs"] < REF_GOAL or r.get("rewarded"):
+        if not r.get("rewarded"):
+            _send(p, rid, f"🎉 یکی از دوستات با لینک تو اومد! ({_fa(r['refs'])} از {_fa(REF_GOAL)})")
+        return
+    r["rewarded"] = True
+    if REF_REWARD:
+        _send(p, rid, f"🏆 <b>تبریک! {_fa(REF_GOAL)} نفر رو دعوت کردی.</b>\n\n🎁 جایزه‌ات:\n{_esc(REF_REWARD)}")
+    else:
+        _send(p, rid, f"🏆 <b>تبریک! {_fa(REF_GOAL)} نفر رو دعوت کردی.</b>\n\n"
+                      f"🎁 جایزه‌ات ({REF_PRIZE}) به‌زودی از طرف پشتیبانی «آزمون یار» برات فرستاده میشه.")
+    who = f"{r.get('name', '')} " + (f"@{r['uname']}" if r.get("uname") else f"(شناسه {ref_key})")
+    for a in ADMINS:
+        ap = PLATFORMS.get(a.split(":", 1)[0])
+        if ap:
+            _send(ap, int(a.split(":", 1)[1]), f"🎁 برنده‌ی دعوت دوستان: {_esc(who)}"
+                  + ("" if REF_REWARD else "\nجایزه رو دستی براش بفرست."))
+
+
+# ---------- ادمین: آمار و پیام گروهی ----------
+ADMIN_HELP = ("🛠 <b>دستورهای ادمین</b>\n"
+              "/stats — آمار کاربرهای ربات\n"
+              "/send — پیام گروهی به همه یا یک دسته\n"
+              "/myid — شناسه‌ی خودت")
+
+
+def stats_text(st):
+    users = list(st["users"].values())
+    week = time.time() - 7 * 86400
+    topics = {}
+    for u in users:
+        for t in u.get("topics") or []:
+            topics[t] = topics.get(t, 0) + 1
+    srcs = {}
+    for u in users:
+        s_ = u.get("src") or "مستقیم"
+        s_ = "دعوت دوستان" if s_.startswith("r_") else {"ch": "دکمه‌ی کانال"}.get(s_, s_)
+        srcs[s_] = srcs.get(s_, 0) + 1
+    plat = {}
+    for k in st["users"]:
+        n = "تلگرام" if k.startswith("tg:") else "بله"
+        plat[n] = plat.get(n, 0) + 1
+    lines = [
+        "📊 <b>آمار ربات دستیار</b>\n",
+        f"👥 کل کاربرها: <b>{_fa(len(users))}</b> ({'، '.join(f'{k}: {_fa(v)}' for k, v in plat.items()) or '—'})",
+        f"🆕 عضو ۷ روز اخیر: {_fa(sum(1 for u in users if u.get('joined', 0) >= week))}",
+        f"💬 فعال ۷ روز اخیر: {_fa(sum(1 for u in users if u.get('seen', 0) >= week))}",
+        f"🚫 ربات رو بلاک کردن: {_fa(sum(1 for u in users if u.get('blocked')))}",
+        f"🧠 تست‌های زده‌شده: {_fa(sum(u.get('q_stats', {}).get('all', 0) for u in users))}",
+        f"👥 دعوت موفق: {_fa(sum(u.get('refs', 0) for u in users))}",
+        "\n<b>علاقه‌ها:</b>",
+    ]
+    for t, n in sorted(topics.items(), key=lambda kv: -kv[1]):
+        lines.append(f"• {TOPIC_NAMES.get(t, 'همه‌ی آزمون‌ها')}: {_fa(n)}")
+    lines.append("\n<b>از کجا اومدن:</b>")
+    for t, n in sorted(srcs.items(), key=lambda kv: -kv[1]):
+        lines.append(f"• {_esc(t)}: {_fa(n)}")
+    return "\n".join(lines)
+
+
+def _bcast_targets(st, topic):
+    out = []
+    for k, u in st["users"].items():
+        if u.get("blocked"):
+            continue
+        if topic == "all" or topic in (u.get("topics") or []) or "all" in (u.get("topics") or []):
+            out.append(k)
+    return out
+
+
+def _admin_message(p, st, key, chat_id, text):
+    pend = st.setdefault("bcast", {})
+    if text in ("/admin", "/help"):
+        _send(p, chat_id, ADMIN_HELP, main_kb(p))
+        return True
+    if text == "/stats":
+        _send(p, chat_id, stats_text(st), main_kb(p))
+        return True
+    if text == "/send":
+        rows = [[{"text": f"همه ({_fa(len(_bcast_targets(st, 'all')))} نفر)", "callback_data": "b|all"}]]
+        rows += [[{"text": f"{name} ({_fa(len(_bcast_targets(st, tag)))} نفر)", "callback_data": f"b|{tag}"}]
+                 for tag, name in TOPICS]
+        rows.append([{"text": "❌ لغو", "callback_data": "b|cancel"}])
+        _send(p, chat_id, "📣 پیام گروهی برای کیا بفرستم؟", {"inline_keyboard": rows})
+        return True
+    if pend.get(key, {}).get("step") == "text" and text and not text.startswith("/"):
+        pend[key].update(step="confirm", text=text)
+        n = len(_bcast_targets(st, pend[key]["topic"]))
+        _send(p, chat_id, f"👇 پیش‌نمایش (برای {_fa(n)} نفر):\n\n{_esc(text)}",
+              {"inline_keyboard": [[{"text": "✅ ارسال", "callback_data": "b|go"},
+                                    {"text": "❌ لغو", "callback_data": "b|cancel"}]]})
+        return True
+    return False
+
+
+def _on_broadcast_cb(p, cq, st, key, data):
+    pend = st.setdefault("bcast", {})
+    m = cq.get("message", {})
+    chat_id, mid = m.get("chat", {}).get("id"), m.get("message_id")
+    arg = data[2:]
+    p.api("answerCallbackQuery", callback_query_id=cq["id"])
+    if arg == "cancel":
+        pend.pop(key, None)
+        p.api("editMessageText", chat_id=chat_id, message_id=mid, **_payload(p, "لغو شد."))
+        return True
+    if arg == "go":
+        job = pend.pop(key, None)
+        if not job or not job.get("text"):
+            return True
+        targets = _bcast_targets(st, job["topic"])
+        p.api("editMessageText", chat_id=chat_id, message_id=mid,
+              **_payload(p, f"⏳ در حال ارسال برای {_fa(len(targets))} نفر..."))
+        ok = 0
+        for k in targets:
+            tp = PLATFORMS.get(k.split(":", 1)[0])
+            if not tp:
+                continue
+            res = _send(tp, int(k.split(":", 1)[1]), _esc(job["text"]))
+            if res.get("ok"):
+                ok += 1
+            elif "block" in str(res.get("description", "")).lower():
+                st["users"][k]["blocked"] = True
+            time.sleep(0.05)
+        _send(p, chat_id, f"✅ پیام برای {_fa(ok)} نفر از {_fa(len(targets))} نفر فرستاده شد.", main_kb(p))
+        return True
+    if arg == "all" or arg in TOPIC_NAMES:
+        pend[key] = {"step": "text", "topic": arg}
+        name = "همه" if arg == "all" else TOPIC_NAMES[arg]
+        p.api("editMessageText", chat_id=chat_id, message_id=mid,
+              **_payload(p, f"📣 گیرنده‌ها: <b>{name}</b>\nحالا متن پیامت رو بفرست."))
+        return True
+    return False
 
 
 # ---------- پیام‌های خودکار ----------
@@ -388,6 +764,12 @@ def tick(st):
     """آزمون تازه + یادآوری مهلت به کاربرهای علاقه‌مند. True اگر وضعیت تغییر کرد."""
     if DISABLED or not st["users"]:
         return False
+    with _lock:
+        daily = _daily_tests(st)
+    return _deadline_tick(st) or daily
+
+
+def _deadline_tick(st):
     hour = iran_now().hour
     if not (REMIND_HOURS[0] <= hour < REMIND_HOURS[1]):
         return False
@@ -443,7 +825,7 @@ def tick(st):
 
 
 def stats(st):
-    users = st["users"].values()
+    users = list(st["users"].values())
     return {"users": len(st["users"]),
             "with_topics": sum(1 for u in users if u.get("topics")),
             "blocked": sum(1 for u in users if u.get("blocked"))}
