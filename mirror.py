@@ -9,11 +9,13 @@ import os
 import re
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
 import requests
 
+import assistant
 import challenge
 
 TG = f"https://api.telegram.org/bot{os.environ['TELEGRAM_BOT_TOKEN']}"
@@ -31,6 +33,7 @@ BOT_MAP_FILE = BASE / "mirror_map_bot.json"  # پست‌های خودکار (bot
 SAVE_EVERY = 120   # ذخیره‌ی امتیازهای چالش هفتگی
 CHECK_EVERY = 90    # هر ۱.۵ دقیقه بررسی پست‌های حذف‌شده
 KEEP_SECONDS = 2 * 86400  # فقط پست‌های ۴۸ ساعت اخیر بررسی می‌شوند
+TICK_EVERY = 600    # هر ۱۰ دقیقه یادآوری‌های شخصی دستیار
 
 MEDIA = [  # (نوع در تلگرام، متد بله، نام فیلد)
     ("photo", "sendPhoto", "photo"),
@@ -172,6 +175,63 @@ def save_challenge(st):
     print("[git] challenge push failed")
 
 
+def save_leads(st):
+    """اطلاعات کاربرهای دستیار (رمزنگاری‌شده) در مخزن ذخیره می‌شود."""
+    assistant.save(st)
+    git("add", assistant.STATE_FILE.name)
+    if git("diff", "--cached", "--quiet").returncode == 0:
+        return
+    git("commit", "-q", "-m", "update leads")
+    for _ in range(3):
+        git("pull", "-q", "--rebase")
+        if git("push", "-q").returncode == 0:
+            return
+        time.sleep(5)
+    print("[git] leads push failed")
+
+
+def is_challenge(upd):
+    """پیام‌های مربوط به چالش هفتگی (فقط وقتی چالش روشن است)."""
+    if not challenge.ENABLED:
+        return False
+    if "callback_query" in upd:
+        return upd["callback_query"].get("data", "").startswith("a|")
+    text = (upd.get("message", {}).get("text") or "").strip()
+    return text.startswith("/start q_") or text in ("/score", "امتیاز من")
+
+
+def bale_loop(leads, flag, deadline):
+    """گفتگوهای خصوصی ربات بله (در یک رشته‌ی جدا)."""
+    url = f"https://tapi.bale.ai/bot{BALE_TOKEN}/getUpdates"
+    offset = None
+    while time.time() < deadline:
+        params = {"timeout": 30}
+        if offset is not None:
+            params["offset"] = offset
+        try:
+            r = requests.get(url, params=params, timeout=45).json()
+        except Exception as e:
+            print(f"[bale] getUpdates failed: {e}"[:200])
+            time.sleep(15)
+            continue
+        if not r.get("ok"):
+            print(f"[bale] getUpdates error: {str(r)[:200]}")
+            time.sleep(60)
+            continue
+        for upd in r.get("result", []):
+            offset = upd["update_id"] + 1
+            try:
+                if assistant.handle_update("bale", upd, leads):
+                    flag["dirty"] = True
+            except Exception as e:
+                print(f"[assistant] bale update failed: {e}"[:300])
+    if offset is not None:
+        try:
+            requests.get(url, params={"offset": offset, "limit": 1, "timeout": 0}, timeout=30)
+        except Exception:
+            pass
+
+
 def mirror_text(html_text):
     """متن برترین‌های هفته در بله و ایتا (بدون HTML)."""
     text = re.sub(r"<[^>]+>", "", html_text)
@@ -278,7 +338,18 @@ def main():
     next_check = 0
     st = challenge.load()
     dirty, next_save = False, time.time() + SAVE_EVERY
+    leads = assistant.load()
+    lflag, next_tick, next_lsave = {"dirty": False}, time.time() + 60, time.time() + SAVE_EVERY
+    if BALE_TOKEN and not assistant.DISABLED:
+        threading.Thread(target=bale_loop, args=(leads, lflag, deadline), daemon=True).start()
     while True:
+        if time.time() >= next_tick:
+            try:
+                if assistant.tick(leads):
+                    lflag["dirty"] = True
+            except Exception as e:
+                print(f"[assistant] tick failed: {e}"[:300])
+            next_tick = time.time() + TICK_EVERY
         try:
             if challenge.ENABLED and challenge.leaderboard_due(st) and challenge.post_leaderboard(st, mirror_text):
                 dirty = True
@@ -290,6 +361,10 @@ def main():
         if dirty and time.time() >= next_save:
             save_challenge(st)
             dirty, next_save = False, time.time() + SAVE_EVERY
+        if lflag["dirty"] and time.time() >= next_lsave:
+            lflag["dirty"] = False
+            save_leads(leads)
+            next_lsave = time.time() + SAVE_EVERY
         if time.time() >= next_check:
             try:
                 check_deleted(data)
@@ -311,11 +386,14 @@ def main():
             sys.exit(1)
         for upd in r["result"]:
             offset = upd["update_id"] + 1
-            if "channel_post" not in upd:  # پیام‌های خصوصی چالش هفتگی
+            if "channel_post" not in upd:  # پیام‌های خصوصی: چالش هفتگی یا دستیار
                 try:
-                    dirty |= bool(challenge.handle_update(upd, st))
+                    if is_challenge(upd):
+                        dirty |= bool(challenge.handle_update(upd, st))
+                    elif assistant.handle_update("tg", upd, leads):
+                        lflag["dirty"] = True
                 except Exception as e:
-                    print(f"[challenge] update failed: {e}"[:300])
+                    print(f"[private] update failed: {e}"[:300])
                 continue
             msg = upd.get("channel_post")
             if (msg and msg["chat"].get("username", "").lower() == CHANNEL
@@ -334,6 +412,8 @@ def main():
             break
     if dirty:
         save_challenge(st)
+    if lflag["dirty"]:
+        save_leads(leads)
     if offset is not None:  # تأیید نهایی تا دوباره فرستاده نشود
         requests.get(f"{TG}/getUpdates", params={"offset": offset, "limit": 1,
                                                  "timeout": 0}, timeout=30)

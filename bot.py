@@ -43,6 +43,11 @@ CALENDAR = []  # همه‌ی ردیف‌های تقویم ای‌استخدام 
 FIRST_RUN_POSTS = 3
 MAX_AGE_DAYS = 3  # خبرهای قدیمی‌تر از ۳ روز منتشر نشوند  # در اولین اجرا فقط چند خبر آخر منتشر شود
 DRY_RUN = os.environ.get("DRY_RUN") == "1"
+BOT_USERNAME = os.environ.get("TELEGRAM_BOT_USERNAME", "estekhdam_news_bot")
+# دکمه‌ی زیر پست‌های کانال: ورود به دستیار ربات (یادآور شخصی + پاسخ سؤال‌ها)
+BOT_BUTTON = json.dumps({"inline_keyboard": [[{
+    "text": "🔔 یادآور شخصی مهلت‌ها و پاسخ سؤال‌ها",
+    "url": f"https://t.me/{BOT_USERNAME}?start=ch"}]]}) if BOT_USERNAME else None
 AI_DISABLED = os.environ.get("AI_DISABLED") == "1"
 
 UA = {"User-Agent": "Mozilla/5.0 (compatible; JobNewsBot/1.0)"}
@@ -282,7 +287,8 @@ def send(text, photo=None):
     if photo:
         r = requests.post(
             f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendPhoto",
-            data={"chat_id": CHANNEL, "caption": text, "parse_mode": "HTML"},
+            data={"chat_id": CHANNEL, "caption": text, "parse_mode": "HTML",
+                  **({"reply_markup": BOT_BUTTON} if BOT_BUTTON else {})},
             files={"photo": ("post.png", photo, "image/png")}, timeout=60)
         if not r.ok:
             print(f"[!] sendPhoto failed, sending text: {r.text[:200]}")
@@ -291,7 +297,8 @@ def send(text, photo=None):
         r = requests.post(
             f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
             json={"chat_id": CHANNEL, "text": text, "parse_mode": "HTML",
-                  "disable_web_page_preview": True},
+                  "disable_web_page_preview": True,
+                  **({"reply_markup": json.loads(BOT_BUTTON)} if BOT_BUTTON else {})},
             timeout=30,
         )
     if not r.ok:
