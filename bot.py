@@ -22,6 +22,7 @@ import extras
 import image
 import pinned
 import quiz
+import edu
 import requests
 
 BASE = Path(__file__).parent
@@ -278,7 +279,8 @@ def make_image(title, kind=None, subtitle=None):
         return None
 
 
-def send(text, photo=None):
+def send(text, photo=None, mirror=None):
+    """mirror: متن جداگانه برای بله و ایتا (اگر متن تلگرام تگ خاص دارد)."""
     if photo and len(plain_text(re.sub(r"<[^>]+>", "", text))) > CAPTION_LIMIT:
         photo = None  # متن بلندتر از حد زیرنویس عکس است؛ بدون عکس
     if DRY_RUN:
@@ -304,7 +306,7 @@ def send(text, photo=None):
     if not r.ok:
         raise RuntimeError(f"Telegram error: {r.text}")
     tg_id = r.json()["result"]["message_id"]
-    bale_id = send_mirrors(text, photo)
+    bale_id = send_mirrors(mirror or text, photo)
     if bale_id:  # برای حذف خودکار در بله اگر پست در تلگرام حذف شد (mirror.py)
         record_bot_mirror(tg_id, bale_id)
     return tg_id
@@ -608,6 +610,12 @@ def main():
         quiz.post(TELEGRAM_TOKEN, CHANNEL, send_mirrors, DRY_RUN)
     except Exception as e:
         print(f"[!] quiz: {e}"[:300])
+    # محتوای آموزشی روزانه (نکته‌ی روز، اشتباه رایج، مهارت تست‌زنی، سؤال تشریحی)
+    if os.environ.get("EDU_DISABLED") != "1":
+        try:
+            edu.post(send, make_image, CHANNEL, dry=DRY_RUN)
+        except Exception as e:
+            print(f"[!] edu: {e}"[:300])
     # پست سنجاق‌شده‌ی تقویم ثبت‌نام‌ها (فقط اگر تغییری کرده باشد ویرایش می‌شود)
     if os.environ.get("PINNED_DISABLED") != "1":
         try:

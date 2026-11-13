@@ -2,6 +2,7 @@
 
 REPOST_REMINDERS: بخشی از عنوان آزمون‌ها، جدا با |   (یادآوری مهلت)
 REPOST_WEEKLY=1: جمع‌بندی هفتگی
+REPOST_EDU=tip|mistake|skill|exam: یک پست آموزشی از همان نوع (چند نوع با فاصله)
 REPOST_QUIZ=1: یک سؤال کوییز همین الان (REPOST_TG_ONLY=1: بدون بله و ایتا)
 """
 import os
@@ -24,6 +25,12 @@ if os.environ.get("REPOST_QUIZ") == "1":
     tg_only = os.environ.get("REPOST_TG_ONLY") == "1"  # آزمایشی: فقط تلگرام
     quiz.post(bot.TELEGRAM_TOKEN, bot.CHANNEL,
               (lambda *a, **k: None) if tg_only else bot.send_mirrors, force=True)
+for kind in os.environ.get("REPOST_EDU", "").split():
+    import edu
+    send = bot.send
+    if os.environ.get("REPOST_TG_ONLY") == "1":
+        bot.send_mirrors = lambda *a, **k: None
+    edu.post(send, bot.make_image, bot.CHANNEL, kind=kind)
 if os.environ.get("REPOST_WEEKLY") == "1":
     bot.post_weekly(tracked)
 followups.save(tracked)

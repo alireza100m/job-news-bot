@@ -12,6 +12,9 @@ on:
       quiz:
         description: "یک سؤال کوییز همین الان؟ (1 = بله)"
         default: "0"
+      edu:
+        description: "پست آموزشی همین الان: tip / mistake / skill / exam (چند نوع با فاصله)"
+        default: ""
       tg_only:
         description: "فقط تلگرام (بدون بله و ایتا)؟ (1 = بله)"
         default: "0"
@@ -43,11 +46,12 @@ jobs:
           REPOST_REMINDERS: ${{ inputs.reminders }}
           REPOST_WEEKLY: ${{ inputs.weekly }}
           REPOST_QUIZ: ${{ inputs.quiz }}
+          REPOST_EDU: ${{ inputs.edu }}
           REPOST_TG_ONLY: ${{ inputs.tg_only }}
         run: python repost.py
       - name: Save state
         run: |
           git config user.name "news-bot"
           git config user.email "news-bot@users.noreply.github.com"
-          git add quiz_state.json tracked.json
+          git add quiz_state.json tracked.json edu_state.json 2>/dev/null || git add quiz_state.json tracked.json
           git diff --cached --quiet || (git commit -m "update quiz state" && git pull --rebase -q && git push)
