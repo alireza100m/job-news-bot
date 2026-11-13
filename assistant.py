@@ -201,7 +201,7 @@ def _welcome(name):
             "• ثبت‌نام‌های باز استخدامی رشته‌ی خودت رو بهت بگم\n"
             "• قبل از تموم شدن مهلت ثبت‌نام بهت یادآوری کنم\n"
             "• به سؤال‌هات درباره‌ی آزمون‌ها جواب بدم\n"
-            "• هر روز تست رایگان (عمومی‌ها) برات بفرستم 🧠\n\n" + TOPICS_Q)
+            "• اگه بخوای، هر روز تست رایگان برات بفرستم 🧠\n\n" + TOPICS_Q)
 
 
 def plain(text):
@@ -287,9 +287,9 @@ def _on_message(p, msg, st):
         _send_invite(p, chat_id, key, u)
         return True
     if text == "/daily":
-        u["daily_off"] = not u.get("daily_off")
-        _send(p, chat_id, "🔕 تست روزانه‌ی خودکار خاموش شد. با /daily دوباره روشنش کن."
-              if u["daily_off"] else "🔔 تست روزانه‌ی خودکار روشن شد.", main_kb(p))
+        u["daily_on"] = not u.get("daily_on")
+        _send(p, chat_id, "🔔 تست روزانه روشن شد؛ هر روز عصر یه تست برات میاد."
+              if u["daily_on"] else "🔕 تست روزانه خاموش شد. با /daily دوباره روشنش کن.", main_kb(p))
         return True
     if text in (BTN_TOPICS, "/topics"):
         _send(p, chat_id, TOPICS_Q, _topics_kb(u))
@@ -314,6 +314,17 @@ def _on_message(p, msg, st):
 
 def _on_callback(p, cq, st):
     data = cq.get("data", "")
+    if data in ("d|yes", "d|no"):
+        key, u, _ = _user(st, p.name, cq["from"])
+        u["daily_on"] = data == "d|yes"
+        p.api("answerCallbackQuery", callback_query_id=cq["id"])
+        m = cq.get("message", {})
+        p.api("editMessageText", chat_id=m.get("chat", {}).get("id"), message_id=m.get("message_id"),
+              **_payload(p, "🔔 عالیه! هر روز عصر یه تست رایگان برات می‌فرستم. (خاموش کردن: /daily)"
+                         if u["daily_on"] else
+                         "باشه 🌸 تست روزانه نمی‌فرستم. هر وقت خواستی دکمه‌ی «🧠 تست رایگان» رو بزن "
+                         "یا با /daily روشنش کن."))
+        return True
     if data.startswith(("q|", "qn")):
         key, u, _ = _user(st, p.name, cq["from"])
         return _on_test_answer(p, cq, u, data)
@@ -337,6 +348,9 @@ def _on_callback(p, cq, st):
                "از این به بعد آزمون‌های تازه و یادآوری مهلت‌ها رو همین‌جا برات می‌فرستم 🔔\n"
                "هر سؤالی هم درباره‌ی آزمون‌ها داشتی، همین‌جا بپرس."))
         _send_open(p, chat_id, u)
+        if not u.get("daily_asked"):
+            u["daily_asked"] = True
+            _ask_daily(p, chat_id)
         return True
     if tag != "all" and tag not in TOPIC_NAMES:
         return False
@@ -501,6 +515,13 @@ def _question_msg(p, chat_id, q, head):
                              "👇 گزینه‌ی درست رو انتخاب کن:", kb)
 
 
+def _ask_daily(p, chat_id):
+    _send(p, chat_id, "🧠 دوست داری هر روز عصر یه <b>تست رایگان</b> از عمومی‌های آزمون استخدامی "
+                      "(معارف، اطلاعات عمومی، قانون اساسی) برات بفرستم؟",
+          {"inline_keyboard": [[{"text": "✅ آره، بفرست", "callback_data": "d|yes"},
+                                {"text": "❌ نه، ممنون", "callback_data": "d|no"}]]})
+
+
 def _send_test(p, chat_id, u):
     day = iran_now().strftime("%Y-%m-%d")
     qd = u.setdefault("q_day", {})
@@ -557,7 +578,7 @@ def _daily_tests(st):
     for key, u in st["users"].items():
         if sends >= 150:
             break
-        if u.get("blocked") or u.get("daily_off") or u.get("last_daily") == day:
+        if u.get("blocked") or not u.get("daily_on") or u.get("last_daily") == day:
             continue
         if u.get("joined", 0) > time.time() - 3600:
             continue
