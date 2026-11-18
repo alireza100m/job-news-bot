@@ -3,7 +3,7 @@
 "title": "استخدام سازمان انتقال خون",
 "link": "https://www.e-estekhdam.com/?p=156840",
 "posted": 1794410637.709822,
-"checked": 1795003006.6556404,
+"checked": 1795006985.421853,
 "status": "در انتظار دریافت کارت",
 "deadline": "1405/08/06 تا 1405/08/22",
 "card": "1405/09/24",
@@ -15,7 +15,7 @@
 "title": "استخدام تبدیل وضعیت کارکنان",
 "link": "https://www.e-estekhdam.com/?p=1737526",
 "posted": 1794410637.7098281,
-"checked": 1795003006.6556437,
+"checked": 1795006985.4218552,
 "status": "در انتظار دریافت کارت",
 "deadline": "1405/08/17 تا 1405/08/21",
 "card": "1405/09/24",
@@ -27,16 +27,19 @@
 "title": "استخدام شرکت پتروشیمی شیراز",
 "link": "https://www.e-estekhdam.com/?p=1583394",
 "posted": 1794410637.7098324,
-"checked": 1795003006.6556454,
-"status": "ثبت نام",
+"checked": 1795006991.0786057,
+"status": "در حال ثبت‌نام",
 "deadline": "1405/08/11 تا 1405/09/03",
-"exam": "1405/09/12"
+"exam": "1405/09/12",
+"card": null,
+"reg_url": "https://sess.shirazu.ac.ir/sess/Script/ExtProcEntry.aspx?Process=74",
+"msg": 175
 },
 "https://www.e-estekhdam.com/?p=1656461": {
 "title": "استخدام شرکت فراگیر سلامت همراه ایرانیان",
 "link": "https://www.e-estekhdam.com/?p=1656461",
 "posted": 1794410637.7098355,
-"checked": 1795003006.6556468,
+"checked": 1795006985.4218574,
 "status": "ثبت نام",
 "deadline": "1405/07/22 تا 1405/12/10"
 },
@@ -44,7 +47,7 @@
 "title": "استخدام دانشگاه علوم پزشکی اراک",
 "link": "https://www.e-estekhdam.com/?p=223624",
 "posted": 1794410637.7098367,
-"checked": 1795003006.6556482,
+"checked": 1795006985.421858,
 "status": "ثبت نام",
 "deadline": "1405/08/11 تا 1405/09/10"
 },
@@ -75,27 +78,32 @@
 "title": "استخدام شرکت‌های گل گهر (دانش آموختگان برتر)",
 "link": "https://www.e-estekhdam.com/?p=1060687",
 "posted": 1794410637.7098417,
-"checked": 1795003006.65565,
-"status": "در انتظار دریافت کارت",
-"deadline": "تا 1405/12/12"
+"checked": 1795007001.2318103,
+"status": "در حال ثبت‌نام",
+"deadline": "تا 1405/12/12",
+"card": null,
+"exam": null,
+"reg_url": "https://hrdms.geg.ir/event_details_new?code=44",
+"msg": 176
 },
 "https://www.e-estekhdam.com/?p=1656317": {
 "title": "استخدام توزیع نیروی برق جنوب کرمان",
 "link": "https://www.e-estekhdam.com/?p=1656317",
 "posted": 1794410637.7098432,
-"checked": 1795003006.6556513,
-"status": "ثبت نام",
+"checked": 1795007009.780786,
+"status": "در حال ثبت‌نام",
 "deadline": "1405/08/07 تا 1405/08/29",
 "card": "1405/09/01",
 "exam": "1405/09/05",
 "reg_url": "https://azmoon.nri.ac.ir/azmoon102/",
-"reminded_for": "1405/08/07 تا 1405/08/29"
+"reminded_for": "1405/08/07 تا 1405/08/29",
+"msg": 177
 },
 "https://www.e-estekhdam.com/?p=1727252": {
 "title": "استخدام هواپیمایی کارون",
 "link": "https://www.e-estekhdam.com/?p=1727252",
 "posted": 1794410637.709845,
-"checked": 1795003006.6556523,
+"checked": 1795006985.421861,
 "status": "ثبت نام",
 "deadline": "1405/08/02 تا 1405/09/06"
 },
@@ -103,7 +111,7 @@
 "title": "استخدام سازمان نهاد کتابخانه ها",
 "link": "https://www.e-estekhdam.com/?p=151290",
 "posted": 1794410637.7098463,
-"checked": 1795003006.6556537,
+"checked": 1795006985.4218612,
 "status": "ثبت نام",
 "deadline": "1405/05/29 تا 1405/09/07"
 },
@@ -111,7 +119,7 @@
 "title": "استخدام سازمان منطقه آزاد انزلی",
 "link": "https://www.e-estekhdam.com/?p=1739023",
 "posted": 1794548619.0049121,
-"checked": 1795003006.655655,
+"checked": 1795006985.421862,
 "status": "ثبت نام",
 "deadline": "1405/08/23 تا 1405/08/30",
 "card": "1405/09/24",
@@ -148,13 +156,14 @@
 "title": "استخدام توزیع نیروی برق استان آذربایجان شرقی (آگهی 2)",
 "link": "https://www.e-estekhdam.com/?p=1709942",
 "posted": 1794721791.949315,
-"checked": 1795003006.6556573,
-"status": "ثبت نام",
+"checked": 1795007018.479042,
+"status": "در حال ثبت‌نام",
 "deadline": "1405/08/10 تا 1405/08/27",
 "card": "1405/09/02",
 "exam": "1405/09/04",
 "reg_url": "https://azarbaijan.nri.ac.ir/news/%D8%A7%D8%B7%D9%84%D8%A7%D8%B9%DB%8C%D9%87-%D8%AC%D8%B0%D8%A8-%D9%81%D8%A7%D8%B1%D8%BA-%D8%A7%D9%84%D8%AA%D8%AD%D8%B5%DB%8C%D9%84%D8%A7%D9%86-%D9%85%D9%85%D8%AA%D8%A7%D8%B2-%D8%AF%D8%A7%D9%86%D8%B4%DA%AF%D8%A7%D9%87-%D9%87%D8%A7%DB%8C-%D8%A8%D8%B1%D8%AA%D8%B1-%D8%AF%D8%B1-%D8%B4%D8%B1%DA%A9%D8%AA-%D8%AA%D9%88%D8%B2%DB%8C%D8%B9-%D9%86%DB%8C%D8%B1%D9%88%DB%8C-%D8%A8%D8%B1%D9%82-%D8%AA%D8%A8%D8%B1%DB%8C%D8%B2",
-"reminded_for": "1405/08/10 تا 1405/08/27"
+"reminded_for": "1405/08/10 تا 1405/08/27",
+"msg": 178
 },
 "https://www.e-estekhdam.com/?p=1398061": {
 "title": "استخدام شرکت مادر تخصصی تولید نیروی برق حرارتی",
@@ -165,7 +174,7 @@
 "exam": "1405/09/26",
 "reg_url": "https://sanjesh.sbu.ac.ir/exm/TPPH1",
 "status": "ثبت نام",
-"checked": 1795003006.6556582,
+"checked": 1795006985.421864,
 "msg": 158
 },
 "https://www.e-estekhdam.com/?p=150123": {
@@ -177,14 +186,14 @@
 "exam": "1405/09/27",
 "reg_url": "http://qmb.iran-azmoon.ir/Home.aspx",
 "status": "ثبت نام",
-"checked": 1795003006.6556587,
+"checked": 1795006985.4218645,
 "msg": 168
 },
 "https://www.e-estekhdam.com/?p=1727023": {
 "title": "استخدام صلاحیت حرفه ای پرستاران",
 "link": "https://www.e-estekhdam.com/?p=1727023",
 "posted": 1794899447.5224428,
-"checked": 1795003006.6556594,
+"checked": 1795006985.421865,
 "status": "ثبت نام",
 "phase": "soon",
 "start": "1405/09/03",
